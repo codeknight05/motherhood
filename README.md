@@ -83,28 +83,34 @@ lib/
 
 ### ✅ Screens (UI)
 - **Home** — Baby profile card, tips carousel with page indicator, quick action grid, milestone progress ring, recommended content
-- **Food Menu** — Age group selector, today's picks, weekly meal plan, nutrition tip, popular categories
+- **Food Menu** — Age group selector, today's picks (tappable → Recipe Detail), weekly meal plan (tappable → Full Plan), nutrition tip, popular categories
+- **Recipe Detail** — Hero image, title, time/calories/tag chips, expandable description, ingredients list with quantities, step-by-step expandable cards, how to serve section
+- **Weekly Meal Plan** — Day selector with colored dots, full meal table (time + recipe image + ingredients & benefits), nutrition tip, weekly highlights grid
 - **Community** — Hero banner, communities list with online count, popular discussions, browse by topics
 - **Learn** — Category grid, featured articles, expert video picks, trending topics
 - **Baby Journey** — Tabbed screen combining Milestones and Memory Diary
 
-### ✅ Baby Journey — Milestones Tab
-- Age group selector (0–3M, 4–6M, 7–9M, 10–12M, 1–2Y)
+### ✅ Baby Journey — Milestones Tab (Real Data)
+- Age group selector auto-sets to baby's actual age
 - Animated age group banner with description
-- Overall progress bar with percentage
-- Development area cards (Gross Motor, Fine Motor, Language, Social & Emotional, Cognitive)
-- Status dots per milestone (achieved / in progress / not started)
-- Encouragement card
+- Overall progress bar using real Supabase data
+- Development area cards — tappable to open milestone detail sheet
+- Milestone detail sheet — list all milestones per category, tap to cycle status
+- "Mark Done" quick action per milestone
+- Status (achieved / in progress / not started) saved to Supabase instantly
+- `milestone_definitions` table with 60+ age-appropriate milestones (0–24 months)
+- `populate_milestones_for_baby()` SQL function auto-creates milestones on first open
+- Home screen progress ring uses real milestone data
 
-### ✅ Baby Journey — Memory Diary Tab
-- Photo grid grouped by month
+### ✅ Baby Journey — Memory Diary Tab (Real Data)
+- Photo grid grouped by month, loaded from Supabase on tab open
 - Filter chips (All, Milestone, First Time, Everyday, Special, Funny, Growth)
 - Stats row (total memories, age in months, milestone count)
 - Add Memory FAB → camera or gallery picker
 - Caption input + tag selector
-- Full-screen photo viewer with pinch-to-zoom, share button
 - **Cloudinary upload** — photos stored in cloud, not local device
-- **Supabase persistence** — memory metadata saved to DB, loaded on tab open
+- **Supabase persistence** — memory metadata saved to DB
+- Full-screen photo viewer with pinch-to-zoom, share button
 
 ### ✅ Authentication
 - Email sign up with confirm password validation
@@ -122,16 +128,24 @@ lib/
 
 ### ✅ Real Data Integration
 - `babyProvider` (Riverpod StateNotifier) loads baby from Supabase on app start
+- `milestonesProvider` loads milestones from Supabase, auto-populates on first open
 - Home, Food Menu, Baby Journey screens all read from `babyProvider`
 - Baby name, age string, birth date, height, weight shown from real DB data
-- Fallback to `sampleBaby` while loading (prevents null crashes)
+- Fallback to sample data while loading (prevents null crashes)
+
+### ✅ Recipe System
+- `RecipeModel` with ingredients, steps, how-to-serve, calories, cook time
+- 6 sample Indian recipes: Moong Dal Khichdi, Carrot & Potato Puree, Ragi Porridge, Lauki Halwa, Mashed Banana, Lauki Moong Dal Puree
+- Weekly meal plan data structure with 5 meals per day
+- Food Menu today's picks wired to Recipe Detail screen
+- "View Full Plan" button opens Weekly Meal Plan screen
 
 ### ✅ Profile Screen
 - User card with Google avatar / initial fallback, email, provider badge
 - Baby details card (name, age, birth date, height, weight, gender)
 - Edit Profile — update display name via Supabase auth metadata
 - Edit Baby Details — update name, height, weight in Supabase
-- **Reset & Start Over** — deletes all baby data (cascades to milestones, memories, vaccinations), resets role, returns to onboarding
+- **Reset & Start Over** — deletes all baby data, resets role, returns to onboarding
 - **Delete All My Data** — deletes profile + all data, signs out permanently
 - Sign Out — clears session and local state
 
@@ -139,38 +153,38 @@ lib/
 - `profiles` table — user role, due date, full name, avatar
 - `babies` table — name, birth date, due date, gender, height, weight
 - `milestones` table — category, title, status, achieved date
-- `memories` table — image URL, caption, tag, age months, date
+- `milestone_definitions` table — 60+ master milestone templates
+- `memories` table — Cloudinary image URL, caption, tag, age months, date
 - `vaccinations` table — vaccine name, due date, given date
-- Row Level Security (RLS) on all tables — users can only access their own data
+- Row Level Security (RLS) on all tables
 - Auto-create profile trigger on sign-up
-- Storage buckets for memories and baby avatars
+- `populate_milestones_for_baby()` stored function
 
 ### ✅ Cloud Storage (Cloudinary)
-- Cloud Name: `dpfowxtg2`
-- Upload Preset: `motherhood_memories` (unsigned, folder: `motherhood`)
+- Cloud Name: `dpfowxtg2`, Upload Preset: `motherhood_memories`
 - Photos organised as `motherhood/{userId}/{babyId}/{timestamp}.jpg`
-- Auto-compression and CDN delivery via `thumbnailUrl()` helper
 - 25GB free storage — sufficient for thousands of baby photos
 
 ### ✅ Version Control
 - Private GitHub repository: `ShriHarsh05/motherhood`
-- `.gitignore` configured for Flutter + Android keystores
+- README updated after every major feature addition
 
 ---
 
 ## Features Pending
 
 ### 🔲 High Priority
-- [ ] **Vaccination Tracker screen** — schedule, due dates, given dates, reminders
-- [ ] **AI Chat (Ask MotherHood)** — Gemini API powered assistant for meal suggestions, parenting questions, food safety checks
+- [ ] **Vaccination Tracker screen** — standard Indian schedule pre-loaded, mark as given, upcoming/overdue status
+- [ ] **AI Chat — Ask MotherHood** — Gemini API powered assistant (meal suggestions, food safety, parenting Q&A)
 - [ ] **Loading shimmer placeholders** — while fetching baby data, memories, milestones
 - [ ] **Empty states** — when no milestones, memories, or data exists yet
+- [ ] **Community Group detail screen** — matching UI reference (group header, quick actions, post tabs, post feed with badges)
 
 ### 🔲 Medium Priority
-- [ ] **Indian meal recommendations** — rule-based engine first (pregnancy week / baby age → meal suggestions), AI second
+- [ ] **Indian meal recommendations** — rule-based engine (pregnancy week / baby age → meal suggestions)
 - [ ] **Food safety checker** — "Can I eat papaya?" type queries via Gemini
-- [ ] **Pregnancy tracking module** — different home screen for pregnant users (week-by-week updates, symptom tracker)
-- [ ] **Real milestones from DB** — currently using sample data; needs Supabase integration
+- [ ] **Pregnancy tracking module** — different home screen for pregnant users (week-by-week updates, symptom tracker, kick counter)
+- [ ] **Custom milestones** — let parents add their own milestones beyond the pre-populated ones
 - [ ] **Push notifications** — vaccination reminders, milestone prompts, daily tips
 
 ### 🔲 Lower Priority

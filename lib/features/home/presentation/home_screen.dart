@@ -8,6 +8,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/baby_avatar.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/milestones_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/milestone_model.dart';
 import '../../profile/presentation/profile_screen.dart';
@@ -349,11 +350,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildMilestoneProgress() {
-    // Using sample milestones until DB integration — will be replaced in next iteration
-    final milestones = sampleMilestones;
-    final totalAchieved = milestones.fold<int>(0, (sum, m) => sum + m.achieved);
-    final totalItems = milestones.fold<int>(0, (sum, m) => sum + m.total);
-    final overallPercent = totalItems == 0 ? 0.0 : totalAchieved / totalItems;
+    // Using real milestones from provider, fallback to sample while loading
+    final msState = ref.watch(milestonesProvider);
+    final milestones = msState.categories.isNotEmpty
+        ? msState.categories
+        : sampleMilestones;
+    final totalAchieved = msState.categories.isNotEmpty ? msState.totalAchieved : milestones.fold<int>(0, (sum, m) => sum + m.achieved);
+    final totalItems = msState.categories.isNotEmpty ? msState.totalItems : milestones.fold<int>(0, (sum, m) => sum + m.total);
+    final overallPercent = msState.categories.isNotEmpty ? msState.overallPercent : (totalItems == 0 ? 0.0 : totalAchieved / totalItems);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

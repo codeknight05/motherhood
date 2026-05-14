@@ -8,6 +8,9 @@ import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/baby_avatar.dart';
 import '../../../core/providers/baby_provider.dart';
 import '../../../models/baby_model.dart';
+import '../../../models/recipe_model.dart';
+import 'recipe_detail_screen.dart';
+import 'weekly_meal_plan_screen.dart';
 
 class FoodMenuScreen extends ConsumerStatefulWidget {
   const FoodMenuScreen({super.key});
@@ -32,45 +35,6 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     {'icon': Icons.restaurant_rounded, 'label': 'Recipes', 'subtitle': 'Simple & healthy recipes', 'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange},
     {'icon': Icons.track_changes_rounded, 'label': 'Foods by\nGoal', 'subtitle': 'Weight gain, immunity & more', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink},
     {'icon': Icons.shield_rounded, 'label': 'Allergy\nGuide', 'subtitle': 'Foods to avoid & be careful', 'color': AppColors.accentBlueLight, 'iconColor': AppColors.accentBlue},
-  ];
-
-  final List<Map<String, dynamic>> _todaysPicks = [
-    {
-      'name': 'Moong Dal Khichdi',
-      'tag': 'Breakfast',
-      'tagColor': AppColors.accentGreen,
-      'time': '20 min',
-      'badge': 'High Protein',
-      'note': 'Good for weight gain',
-      'image': 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=300',
-    },
-    {
-      'name': 'Carrot & Potato Puree',
-      'tag': 'Lunch',
-      'tagColor': AppColors.accentOrange,
-      'time': '15 min',
-      'badge': 'Rich in Vit A',
-      'note': 'Easy to digest',
-      'image': 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=300',
-    },
-    {
-      'name': 'Oats Veg Cheela',
-      'tag': 'Snack',
-      'tagColor': AppColors.primary,
-      'time': '20 min',
-      'badge': 'High Fiber',
-      'note': 'Supports digestion',
-      'image': 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300',
-    },
-    {
-      'name': 'Suji Apple Porridge',
-      'tag': 'Dinner',
-      'tagColor': AppColors.accentPink,
-      'time': '15 min',
-      'badge': 'Rich in Iron',
-      'note': 'Support boost',
-      'image': 'https://images.unsplash.com/photo-1517093157656-b9eccef91cb1?w=300',
-    },
   ];
 
   final List<String> _weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -307,6 +271,9 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   }
 
   Widget _buildTodaysPicks() {
+    final picks = sampleRecipes.take(4).toList();
+    final tagColors = [AppColors.accentGreen, AppColors.accentOrange, AppColors.primary, AppColors.accentPink];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -316,14 +283,19 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
           height: 210,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _todaysPicks.length,
+            itemCount: picks.length,
             separatorBuilder: (_, __) => const SizedBox(width: AppConstants.paddingM),
             itemBuilder: (context, index) {
-              final pick = _todaysPicks[index];
+              final recipe = picks[index];
+              final tagColor = tagColors[index % tagColors.length];
               return SizedBox(
                 width: 148,
                 child: AppCard(
                   padding: EdgeInsets.zero,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipe: recipe)),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -335,7 +307,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                               topRight: Radius.circular(AppConstants.radiusL),
                             ),
                             child: Image.network(
-                              pick['image'] as String,
+                              recipe.imageUrl,
                               height: 108,
                               width: double.infinity,
                               fit: BoxFit.cover,
@@ -347,26 +319,23 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                             ),
                           ),
                           Positioned(
-                            top: 7,
-                            left: 7,
+                            top: 7, left: 7,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                               decoration: BoxDecoration(
-                                color: pick['tagColor'] as Color,
+                                color: tagColor,
                                 borderRadius: BorderRadius.circular(AppConstants.radiusFull),
                               ),
                               child: Text(
-                                pick['tag'] as String,
+                                recipe.category.label,
                                 style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                               ),
                             ),
                           ),
                           Positioned(
-                            top: 7,
-                            right: 7,
+                            top: 7, right: 7,
                             child: Container(
-                              width: 24,
-                              height: 24,
+                              width: 24, height: 24,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.9),
                                 shape: BoxShape.circle,
@@ -383,36 +352,26 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                pick['name'] as String,
-                                style: AppTextStyles.titleMedium,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(recipe.name, style: AppTextStyles.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                               const Spacer(),
                               Row(
                                 children: [
                                   const Icon(Icons.access_time_rounded, size: 10, color: AppColors.textSecondary),
                                   const SizedBox(width: 2),
-                                  Text(pick['time'] as String, style: AppTextStyles.labelSmall),
+                                  Text('${recipe.cookTimeMinutes} min', style: AppTextStyles.labelSmall),
                                   const SizedBox(width: 3),
                                   const Text('·', style: TextStyle(color: AppColors.textHint, fontSize: 10)),
                                   const SizedBox(width: 3),
                                   Flexible(
                                     child: Text(
-                                      pick['badge'] as String,
+                                      recipe.tag,
                                       style: AppTextStyles.labelSmall.copyWith(color: AppColors.accentGreen),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
                               ),
-                              Text(
-                                pick['note'] as String,
-                                style: AppTextStyles.labelSmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(recipe.benefit, style: AppTextStyles.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],
                           ),
                         ),
@@ -447,7 +406,10 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
               ),
               const SizedBox(width: 8),
               OutlinedButton(
-                onPressed: () {},
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => WeeklyMealPlanScreen(ageGroup: _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '))),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.accentOrange,
                   side: const BorderSide(color: AppColors.accentOrange),

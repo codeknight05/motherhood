@@ -10,6 +10,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/baby_avatar.dart';
 import '../../../core/providers/baby_provider.dart';
 import '../../../core/services/cloudinary_service.dart';
+import '../../../core/providers/milestones_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/milestone_model.dart';
 import '../../../models/memory_model.dart';
@@ -217,13 +218,38 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMilestones());
+  }
+
+  void _loadMilestones() {
+    final baby = ref.read(babyProvider).baby;
+    if (baby == null) return;
+    ref.read(milestonesProvider.notifier).loadMilestones(baby.id, baby.ageInMonths);
+    // Set age group selector to match baby's actual age
+    _setAgeGroupFromAge(baby.ageInMonths);
+  }
+
+  void _setAgeGroupFromAge(int months) {
+    int group;
+    if (months <= 3) { group = 0; }
+    else if (months <= 6) { group = 1; }
+    else if (months <= 9) { group = 2; }
+    else if (months <= 12) { group = 3; }
+    else { group = 4; }
+    if (mounted) setState(() => _selectedAgeGroup = group);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final milestones = sampleMilestones;
-    final totalAchieved = milestones.fold<int>(0, (s, m) => s + m.achieved);
-    final totalInProgress = milestones.fold<int>(0, (s, m) => s + m.inProgress);
-    final totalItems = milestones.fold<int>(0, (s, m) => s + m.total);
+    final msState = ref.watch(milestonesProvider);
+    final milestones = msState.categories.isNotEmpty ? msState.categories : sampleMilestones;
+    final totalAchieved = msState.categories.isNotEmpty ? msState.totalAchieved : milestones.fold<int>(0, (s, m) => s + m.achieved);
+    final totalInProgress = msState.categories.isNotEmpty ? msState.totalInProgress : milestones.fold<int>(0, (s, m) => s + m.inProgress);
+    final totalItems = msState.categories.isNotEmpty ? msState.totalItems : milestones.fold<int>(0, (s, m) => s + m.total);
     final totalNotStarted = totalItems - totalAchieved - totalInProgress;
-    final percent = totalItems == 0 ? 0.0 : totalAchieved / totalItems;
+    final percent = msState.categories.isNotEmpty ? msState.overallPercent : (totalItems == 0 ? 0.0 : totalAchieved / totalItems);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -235,11 +261,18 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
         const SizedBox(height: AppConstants.paddingM),
         _buildAgeBanner(),
         const SizedBox(height: AppConstants.paddingM),
-        _buildOverallProgress(totalAchieved, totalItems, totalInProgress, totalNotStarted, percent),
-        const SizedBox(height: AppConstants.paddingXL),
-        _buildDevelopmentAreas(milestones),
-        const SizedBox(height: AppConstants.paddingM),
-        _buildEncouragementCard(),
+        if (msState.isLoading)
+          const Center(child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
+          ))
+        else ...[
+          _buildOverallProgress(totalAchieved, totalItems, totalInProgress, totalNotStarted, percent),
+          const SizedBox(height: AppConstants.paddingXL),
+          _buildDevelopmentAreas(milestones),
+          const SizedBox(height: AppConstants.paddingM),
+          _buildEncouragementCard(),
+        ],
       ],
     );
   }
@@ -453,7 +486,7 @@ class _ProgressLegend extends StatelessWidget {
   }
 }
 
-class _DevelopmentAreaCard extends StatelessWidget {
+class _DevelopmentAreaCard extends ConsumerWidget {
   final MilestoneCategoryProgress milestone;
   const _DevelopmentAreaCard({required this.milestone});
 
@@ -467,10 +500,20 @@ class _DevelopmentAreaCard extends StatelessWidget {
     }
   }
 
+  Color get _accentColor {
+    switch (milestone.category) {
+      case MilestoneCategory.grossMotor: return AppColors.accentGreen;
+      case MilestoneCategory.fineMotor: return AppColors.accentOrange;
+      case MilestoneCategory.language: return AppColors.primary;
+      case MilestoneCategory.socialEmotional: return AppColors.accentPink;
+      case MilestoneCategory.cognitive: return AppColors.accentBlue;
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppCard(
-      onTap: () {},
+      onTap: () => _showMilestoneSheet(context, ref),
       child: Row(
         children: [
           Container(
@@ -490,7 +533,7 @@ class _DevelopmentAreaCard extends StatelessWidget {
             ),
           ),
           Row(
-            children: List.generate(milestone.total, (i) {
+            children: List.generate(milestone.total > 5 ? 5 : milestone.total, (i) {
               MilestoneStatus s;
               if (i < milestone.achieved) { s = MilestoneStatus.achieved; }
               else if (i < milestone.achieved + milestone.inProgress) { s = MilestoneStatus.inProgress; }
@@ -504,6 +547,22 @@ class _DevelopmentAreaCard extends StatelessWidget {
           const SizedBox(width: AppConstants.paddingS),
           const Icon(Icons.chevron_right_rounded, color: AppColors.textHint, size: 20),
         ],
+      ),
+    );
+  }
+
+  void _showMilestoneSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MilestoneDetailSheet(
+        milestone: milestone,
+        accentColor: _accentColor,
+        bgColor: _bgColor,
+        onStatusChanged: (itemId, newStatus) {
+          ref.read(milestonesProvider.notifier).updateMilestoneStatus(itemId, newStatus);
+        },
       ),
     );
   }
@@ -1219,5 +1278,215 @@ class _MemoryDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+
+// ─── Milestone Detail Sheet ───────────────────────────────────────────────────
+
+class _MilestoneDetailSheet extends StatelessWidget {
+  final MilestoneCategoryProgress milestone;
+  final Color accentColor;
+  final Color bgColor;
+  final void Function(String itemId, MilestoneStatus status) onStatusChanged;
+
+  const _MilestoneDetailSheet({
+    required this.milestone,
+    required this.accentColor,
+    required this.bgColor,
+    required this.onStatusChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(AppConstants.paddingL),
+      padding: const EdgeInsets.all(AppConstants.paddingXL),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(child: Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
+          )),
+          const SizedBox(height: AppConstants.paddingL),
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                child: Center(child: Text(milestone.category.emoji, style: const TextStyle(fontSize: 22))),
+              ),
+              const SizedBox(width: AppConstants.paddingM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(milestone.category.label, style: AppTextStyles.headlineSmall),
+                    Text(
+                      '${milestone.achieved} of ${milestone.total} achieved',
+                      style: AppTextStyles.bodySmall.copyWith(color: accentColor),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppConstants.paddingL),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+            child: LinearProgressIndicator(
+              value: milestone.progressPercent,
+              minHeight: 8,
+              backgroundColor: bgColor,
+              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            ),
+          ),
+          const SizedBox(height: AppConstants.paddingXL),
+          // Milestone items list
+          Text('Milestones', style: AppTextStyles.titleLarge),
+          const SizedBox(height: AppConstants.paddingM),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.45,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: milestone.items.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
+              itemBuilder: (context, index) {
+                final item = milestone.items[index];
+                return _MilestoneItemRow(
+                  item: item,
+                  accentColor: accentColor,
+                  onStatusChanged: (newStatus) {
+                    onStatusChanged(item.id, newStatus);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: AppConstants.paddingM),
+        ],
+      ),
+    );
+  }
+}
+
+class _MilestoneItemRow extends StatelessWidget {
+  final MilestoneItem item;
+  final Color accentColor;
+  final void Function(MilestoneStatus) onStatusChanged;
+
+  const _MilestoneItemRow({
+    required this.item,
+    required this.accentColor,
+    required this.onStatusChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppConstants.paddingM),
+      child: Row(
+        children: [
+          // Status icon — tappable to cycle through states
+          GestureDetector(
+            onTap: () => _cycleStatus(context),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                color: item.status == MilestoneStatus.notStarted
+                    ? Colors.transparent
+                    : item.status == MilestoneStatus.inProgress
+                        ? AppColors.warning
+                        : accentColor,
+                shape: BoxShape.circle,
+                border: item.status == MilestoneStatus.notStarted
+                    ? Border.all(color: AppColors.textHint, width: 2)
+                    : null,
+              ),
+              child: item.status != MilestoneStatus.notStarted
+                  ? Icon(
+                      item.status == MilestoneStatus.achieved
+                          ? Icons.check_rounded
+                          : Icons.timelapse_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: AppConstants.paddingM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.title,
+                  style: AppTextStyles.titleMedium.copyWith(
+                    decoration: item.status == MilestoneStatus.achieved
+                        ? TextDecoration.none
+                        : null,
+                    color: item.status == MilestoneStatus.achieved
+                        ? AppColors.textSecondary
+                        : AppColors.textPrimary,
+                  ),
+                ),
+                if (item.achievedDate != null)
+                  Text(
+                    'Achieved on ${item.achievedDate}',
+                    style: AppTextStyles.labelSmall.copyWith(color: accentColor),
+                  ),
+              ],
+            ),
+          ),
+          // Quick action chips
+          if (item.status != MilestoneStatus.achieved)
+            GestureDetector(
+              onTap: () => onStatusChanged(MilestoneStatus.achieved),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                ),
+                child: Text(
+                  'Mark Done',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: accentColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _cycleStatus(BuildContext context) {
+    MilestoneStatus next;
+    switch (item.status) {
+      case MilestoneStatus.notStarted:
+        next = MilestoneStatus.inProgress;
+      case MilestoneStatus.inProgress:
+        next = MilestoneStatus.achieved;
+      case MilestoneStatus.achieved:
+        next = MilestoneStatus.notStarted;
+    }
+    onStatusChanged(next);
   }
 }

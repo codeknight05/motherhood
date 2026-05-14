@@ -8,6 +8,7 @@ import '../../features/learn/presentation/learn_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../providers/baby_provider.dart';
+import '../providers/milestones_provider.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -22,11 +23,21 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void initState() {
     super.initState();
-    // Load baby data when shell mounts (covers returning users)
+    // Load baby data and milestones when shell mounts (covers returning users)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final babyState = ref.read(babyProvider);
       if (!babyState.hasChecked) {
-        ref.read(babyProvider.notifier).loadBaby();
+        ref.read(babyProvider.notifier).loadBaby().then((_) {
+          final baby = ref.read(babyProvider).baby;
+          if (baby != null) {
+            ref.read(milestonesProvider.notifier)
+                .loadMilestones(baby.id, baby.ageInMonths);
+          }
+        });
+      } else if (babyState.baby != null) {
+        final baby = babyState.baby!;
+        ref.read(milestonesProvider.notifier)
+            .loadMilestones(baby.id, baby.ageInMonths);
       }
     });
   }
