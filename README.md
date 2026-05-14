@@ -183,6 +183,90 @@ lib/
 
 ---
 
+## 🌸 Future Feature — Fertility & Ovulation Tracking
+
+> **Note:** This feature is planned for Phase 2 after the core baby tracking flow is complete. Do not implement until milestones, vaccination tracker, and AI chat are done.
+
+### Why Add It
+Currently MotherHood covers the journey from **pregnancy onwards**. Adding fertility tracking fills the gap before pregnancy and makes MotherHood a true end-to-end companion:
+
+```
+Trying to conceive → Pregnant → Postpartum → Baby growth → Early childhood
+     (Fertility)      (Pregnancy)  (Recovery)   (Milestones)    (Learning)
+```
+
+### What to Build
+
+**Cycle Tracker**
+- Log period start/end dates
+- Cycle length calculation (average over time)
+- Period predictions for next 3–6 months
+
+**Ovulation Predictor**
+- Fertile window calculation (typically day 10–17 of a 28-day cycle)
+- Peak ovulation day highlight
+- Calendar view — color-coded (period / fertile / ovulation / luteal phase)
+
+**Symptom Logging**
+- Daily mood, energy, cramps, discharge, spotting
+- Basal body temperature (BBT) logging
+- Cervical mucus tracking
+
+**TTC (Trying to Conceive) Mode**
+- Tips for each phase of the cycle
+- Intercourse timing recommendations
+- When to take a pregnancy test
+
+### Onboarding Change Required
+Add a 4th role to the onboarding screen:
+```
+🌸 I'm trying to conceive   ← NEW
+🤰 I am pregnant
+👶 I have a baby / child
+👨‍👩‍👧 I am a family member
+```
+
+Users in TTC mode see a Fertility home screen. Once pregnant, they switch role and the app transitions seamlessly.
+
+### DB Changes Required
+```sql
+-- Add new role value
+alter table public.profiles
+  drop constraint if exists profiles_role_check;
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('trying_to_conceive', 'pregnant', 'parent', 'family'));
+
+-- Menstrual cycle records
+create table public.cycles (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references profiles(id) on delete cascade,
+  period_start date not null,
+  period_end   date,
+  cycle_length integer,
+  notes        text,
+  created_at   timestamptz default now()
+);
+
+-- Daily symptom logs
+create table public.cycle_logs (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid references profiles(id) on delete cascade,
+  log_date    date not null,
+  mood        text,
+  energy      integer check (energy between 1 and 5),
+  cramps      integer check (cramps between 1 and 5),
+  bbt         numeric(4,2),
+  discharge   text,
+  notes       text
+);
+```
+
+### Competitive Context
+Cloudnine app has an ovulation tracker — this is one of their advantages over us. Building this feature closes that gap while keeping our differentiators (Indian nutrition, memory diary, AI personalisation, no hospital lock-in).
+
+---
+
 ## Approaches & Decisions
 
 ### State Management — Riverpod over Provider/Bloc
