@@ -1,0 +1,63 @@
+name: motherhood
+description: "AI-Powered Maternal & Child Wellness App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # UI
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.0.17
+  shimmer: ^3.0.0
+  smooth_page_indicator: ^1.2.0+3
+  percent_indicator: ^4.2.3
+
+  # Utils
+  intl: ^0.20.2
+
+  # Supabase & Auth
+  supabase_flutter: ^2.8.4
+  google_sign_in: ^6.2.2
+
+  # Secure storage
+  flutter_secure_storage: ^9.2.4
+
+  # Media
+  image_picker: ^1.1.2
+  image_cropper: ^8.0.2
+
+  # Cloud image storage
+  cloudinary_public: ^0.23.1
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.15
+  riverpod_generator: ^2.6.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+
