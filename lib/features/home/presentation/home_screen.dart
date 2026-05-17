@@ -12,6 +12,9 @@ import '../../../core/providers/milestones_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/milestone_model.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../vaccination/presentation/vaccination_screen.dart';
+import '../../food_menu/presentation/food_menu_screen.dart';
+import '../../milestones/presentation/baby_journey_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -39,11 +42,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
 
   final List<Map<String, dynamic>> _quickActions = [
-    {'icon': Icons.directions_walk_rounded, 'label': 'Milestone\nTracker', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary},
-    {'icon': Icons.restaurant_menu_rounded, 'label': 'Menu &\nRecipes', 'color': AppColors.accentGreenLight, 'iconColor': AppColors.accentGreen},
-    {'icon': Icons.people_rounded, 'label': 'Communities', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink},
-    {'icon': Icons.menu_book_rounded, 'label': 'Knowledge\nHub', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary},
-    {'icon': Icons.vaccines_rounded, 'label': 'Vaccination\nTracker', 'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange},
+    {'icon': Icons.directions_walk_rounded, 'label': 'Milestone\nTracker', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary, 'route': 'milestones'},
+    {'icon': Icons.restaurant_menu_rounded, 'label': 'Menu &\nRecipes', 'color': AppColors.accentGreenLight, 'iconColor': AppColors.accentGreen, 'route': 'food'},
+    {'icon': Icons.people_rounded, 'label': 'Communities', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink, 'route': 'community'},
+    {'icon': Icons.menu_book_rounded, 'label': 'Knowledge\nHub', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary, 'route': 'learn'},
+    {'icon': Icons.vaccines_rounded, 'label': 'Vaccination\nTracker', 'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange, 'route': 'vaccination'},
   ];
 
   String _monthName(int month) {
@@ -316,7 +319,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return Padding(
             padding: EdgeInsets.only(right: i < _quickActions.length - 1 ? AppConstants.paddingM : 0),
             child: GestureDetector(
-              onTap: () {},
+              onTap: () => _handleQuickAction(action['route'] as String),
               child: SizedBox(
                 width: 66,
                 child: Column(
@@ -349,6 +352,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _handleQuickAction(String route) {
+    switch (route) {
+      case 'milestones':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const MilestonesScreen()));
+      case 'food':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const FoodMenuScreen()));
+      case 'vaccination':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const VaccinationScreen()));
+      case 'community':
+      case 'learn':
+        // These are bottom nav tabs — no-op from home quick actions
+        break;
+    }
+  }
+
   Widget _buildMilestoneProgress() {
     // Using real milestones from provider, fallback to sample while loading
     final msState = ref.watch(milestonesProvider);
@@ -362,7 +380,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Milestone Progress', actionLabel: 'See All', onAction: () {}),
+        SectionHeader(title: 'Milestone Progress', actionLabel: 'See All', onAction: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const MilestonesScreen()));
+        }),
         const SizedBox(height: AppConstants.paddingM),
         AppCard(
           child: Row(

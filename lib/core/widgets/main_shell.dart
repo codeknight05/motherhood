@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/milestones/presentation/baby_journey_screen.dart';
 import '../../features/food_menu/presentation/food_menu_screen.dart';
-import '../../features/community/presentation/community_screen.dart';
+import '../../features/community/presentation/communities_list_screen.dart';
 import '../../features/learn/presentation/learn_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -44,9 +44,9 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    MilestonesScreen(),
     FoodMenuScreen(),
-    MilestonesScreen(),   // Baby Journey (Milestones + Memory Diary) — center
-    CommunityScreen(),
+    CommunitiesListScreen(),
     LearnScreen(),
   ];
 
@@ -79,7 +79,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           child: Row(
             children: [
               _NavItem(icon: Icons.home_rounded, label: 'Home', isSelected: _currentIndex == 0, onTap: () => setState(() => _currentIndex = 0)),
-              _NavItem(icon: Icons.restaurant_menu_rounded, label: 'Food', isSelected: _currentIndex == 1, onTap: () => setState(() => _currentIndex = 1)),
+              _NavItem(icon: Icons.directions_walk_rounded, label: 'Milestones', isSelected: _currentIndex == 1, onTap: () => setState(() => _currentIndex = 1)),
               _CenterNavItem(isSelected: _currentIndex == 2, onTap: () => setState(() => _currentIndex = 2)),
               _NavItem(icon: Icons.people_rounded, label: 'Community', isSelected: _currentIndex == 3, onTap: () => setState(() => _currentIndex = 3)),
               _NavItem(icon: Icons.menu_book_rounded, label: 'Learn', isSelected: _currentIndex == 4, onTap: () => setState(() => _currentIndex = 4)),
@@ -152,11 +152,11 @@ class _CenterNavItem extends StatelessWidget {
                     ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 3))]
                     : [],
               ),
-              child: const Icon(Icons.child_care_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.rice_bowl_rounded, color: Colors.white, size: 20),
             ),
             const SizedBox(height: 2),
             Text(
-              'Journey',
+              'Food Menu',
               style: AppTextStyles.labelSmall.copyWith(
                 color: isSelected ? AppColors.navSelected : AppColors.navUnselected,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
