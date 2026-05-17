@@ -35,6 +35,22 @@ class CloudinaryService {
     return response.secureUrl;
   }
 
+  /// Upload a memory video and return its secure URL.
+  static Future<String> uploadMemoryVideo({
+    required File file,
+    required String userId,
+    required String babyId,
+  }) async {
+    final response = await _cloudinary.uploadFile(
+      CloudinaryFile.fromFile(
+        file.path,
+        folder: 'motherhood/$userId/$babyId',
+        resourceType: CloudinaryResourceType.Video,
+      ),
+    );
+    return response.secureUrl;
+  }
+
   /// Upload a baby avatar and return its secure URL.
   static Future<String> uploadBabyAvatar({
     required File file,
