@@ -97,9 +97,36 @@ class _WeeklyMealPlanScreenState extends State<WeeklyMealPlanScreen> {
         ],
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.shopping_cart_outlined, size: 22), onPressed: () {}),
-        IconButton(icon: const Icon(Icons.ios_share_rounded, size: 20), onPressed: () {}),
-        const SizedBox(width: 4),
+        // Shopping List
+        GestureDetector(
+          onTap: () {},
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.shopping_cart_outlined, size: 20, color: AppColors.textPrimary),
+                Text('Shopping List', style: AppTextStyles.labelSmall.copyWith(fontSize: 8)),
+              ],
+            ),
+          ),
+        ),
+        // Share Plan
+        GestureDetector(
+          onTap: () {},
+          child: Padding(
+            padding: const EdgeInsets.only(left: 4, right: 12, top: 8, bottom: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.ios_share_rounded, size: 20, color: AppColors.textPrimary),
+                Text('Share Plan', style: AppTextStyles.labelSmall.copyWith(fontSize: 8)),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -113,7 +140,7 @@ class _WeeklyMealPlanScreenState extends State<WeeklyMealPlanScreen> {
       ),
       child: Row(
         children: [
-          const Text('��', style: TextStyle(fontSize: 32)),
+          const Text('🥗', style: TextStyle(fontSize: 32)),
           const SizedBox(width: AppConstants.paddingM),
           Expanded(
             child: Column(
@@ -313,7 +340,7 @@ class _WeeklyMealPlanScreenState extends State<WeeklyMealPlanScreen> {
                     children: [
                       Text(h['emoji']!, style: const TextStyle(fontSize: 24)),
                       const SizedBox(height: 4),
-                      Text(h['label']!, style: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary), textAlign: TextAlign.center),
+                      Text(h['label']!, style: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text(h['desc']!, style: AppTextStyles.labelSmall, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],

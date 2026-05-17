@@ -11,6 +11,8 @@ import '../../../models/baby_model.dart';
 import '../../../models/recipe_model.dart';
 import 'recipe_detail_screen.dart';
 import 'weekly_meal_plan_screen.dart';
+import 'bookmarked_recipes_screen.dart';
+import 'ai_recipes_screen.dart';
 
 class FoodMenuScreen extends ConsumerStatefulWidget {
   const FoodMenuScreen({super.key});
@@ -31,10 +33,10 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   ];
 
   final List<Map<String, dynamic>> _quickCategories = [
-    {'icon': Icons.calendar_today_rounded, 'label': 'Weekly\nMeal Plan', 'subtitle': 'Plan a week of healthy meals', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary},
-    {'icon': Icons.restaurant_rounded, 'label': 'Recipes', 'subtitle': 'Simple & healthy recipes', 'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange},
-    {'icon': Icons.track_changes_rounded, 'label': 'Foods by\nGoal', 'subtitle': 'Weight gain, immunity & more', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink},
-    {'icon': Icons.shield_rounded, 'label': 'Allergy\nGuide', 'subtitle': 'Foods to avoid & be careful', 'color': AppColors.accentBlueLight, 'iconColor': AppColors.accentBlue},
+    {'icon': Icons.calendar_today_rounded, 'label': 'Weekly\nMeal Plan', 'subtitle': 'Plan a week of healthy meals', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary, 'route': 'meal_plan'},
+    {'icon': Icons.bookmark_rounded, 'label': 'Saved\nRecipes', 'subtitle': 'Your bookmarked recipes', 'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange, 'route': 'bookmarks'},
+    {'icon': Icons.track_changes_rounded, 'label': 'Foods by\nGoal', 'subtitle': 'Weight gain, immunity & more', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink, 'route': null},
+    {'icon': Icons.shield_rounded, 'label': 'Allergy\nGuide', 'subtitle': 'Foods to avoid & be careful', 'color': AppColors.accentBlueLight, 'iconColor': AppColors.accentBlue, 'route': null},
   ];
 
   final List<String> _weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -63,6 +65,8 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                 _buildBabyCard(baby),
                 const SizedBox(height: AppConstants.paddingL),
                 _buildAgeGroupSelector(),
+                const SizedBox(height: AppConstants.paddingL),
+                _buildAiRecipesBanner(),
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildQuickCategories(),
                 const SizedBox(height: AppConstants.paddingXL),
@@ -176,6 +180,75 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     );
   }
 
+  Widget _buildAiRecipesBanner() {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AiRecipesScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(AppConstants.paddingL),
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'AI Daily Recipes',
+                        style: AppTextStyles.headlineSmall.copyWith(color: Colors.white),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                        ),
+                        child: const Text(
+                          'Gemini ✨',
+                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Fresh, innovative recipes generated daily\njust for your baby\'s age & needs',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                    child: Text(
+                      'See Today\'s Recipes →',
+                      style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('🤖', style: TextStyle(fontSize: 48)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAgeGroupSelector() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -235,7 +308,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
       itemBuilder: (context, index) {
         final cat = _quickCategories[index];
         return GestureDetector(
-          onTap: () {},
+          onTap: () => _handleCategoryTap(cat['route'] as String?),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -270,6 +343,26 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     );
   }
 
+  void _handleCategoryTap(String? route) {
+    if (route == null) return;
+    switch (route) {
+      case 'meal_plan':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WeeklyMealPlanScreen(
+              ageGroup: _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
+            ),
+          ),
+        );
+      case 'bookmarks':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BookmarkedRecipesScreen()),
+        );
+    }
+  }
+
   Widget _buildTodaysPicks() {
     final picks = sampleRecipes.take(4).toList();
     final tagColors = [AppColors.accentGreen, AppColors.accentOrange, AppColors.primary, AppColors.accentPink];
@@ -277,7 +370,12 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: "Today's Picks", actionLabel: 'View all', onAction: () {}),
+        SectionHeader(title: "Today's Picks", actionLabel: 'View all', onAction: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BookmarkedRecipesScreen()),
+          );
+        }),
         const SizedBox(height: AppConstants.paddingM),
         SizedBox(
           height: 210,

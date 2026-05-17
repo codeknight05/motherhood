@@ -46,6 +46,11 @@ dependencies:
   cloudinary_public: ^0.23.1
   http: ^1.6.0
 
+  # Share
+  share_plus: ^10.1.4
+
+  # AI — use http directly (google_generative_ai sdk uses deprecated v1beta endpoint)
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

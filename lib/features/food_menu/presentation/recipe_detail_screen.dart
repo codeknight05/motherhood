@@ -1,37 +1,56 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/recipe_provider.dart';
 import '../../../models/recipe_model.dart';
 
-class RecipeDetailScreen extends StatefulWidget {
+class RecipeDetailScreen extends ConsumerStatefulWidget {
   final RecipeModel recipe;
+  final bool isAiGenerated;
 
-  const RecipeDetailScreen({super.key, required this.recipe});
+  const RecipeDetailScreen({
+    super.key,
+    required this.recipe,
+    this.isAiGenerated = false,
+  });
 
   @override
-  State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
+  ConsumerState<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
 }
 
-class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
-  bool _isBookmarked = false;
+class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
   bool _showFullDescription = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _isBookmarked = widget.recipe.isBookmarked;
+  Future<void> _shareRecipe() async {
+    final recipe = widget.recipe;
+    final desc = recipe.description.length > 100
+        ? '${recipe.description.substring(0, 100)}...'
+        : recipe.description;
+    final ingredientList =
+        recipe.ingredients.map((i) => '• ${i.name} — ${i.quantity}').join('\n');
+
+    final text = '🍽️ ${recipe.name}\n\n'
+        '⏱ ${recipe.cookTimeMinutes} mins  |  🔥 ${recipe.calories} cal\n\n'
+        '📝 $desc\n\n'
+        '🥗 Ingredients:\n$ingredientList\n\n'
+        'Shared from MotherHood 💗 — Your parenting companion';
+
+    await Share.share(text, subject: recipe.name);
   }
 
   @override
   Widget build(BuildContext context) {
     final recipe = widget.recipe;
+    final isBookmarked = ref.watch(bookmarksProvider).contains(recipe.id);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
-          _buildHeroAppBar(recipe),
+          _buildHeroAppBar(recipe, isBookmarked),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
             sliver: SliverList(
@@ -57,7 +76,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
-  Widget _buildHeroAppBar(RecipeModel recipe) {
+  Widget _buildHeroAppBar(RecipeModel recipe, bool isBookmarked) {
     return SliverAppBar(
       expandedHeight: 260,
       pinned: true,
@@ -81,30 +100,48 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: GestureDetector(
-            onTap: () => setState(() => _isBookmarked = !_isBookmarked),
+            onTap: () {
+              ref.read(bookmarksProvider.notifier).toggle(recipe.id);
+              // If AI-generated, persist the recipe so it shows in bookmarks
+              if (widget.isAiGenerated) {
+                ref.read(aiBookmarkedRecipesProvider.notifier).upsert(recipe);
+              }
+              final nowBookmarked = ref.read(bookmarksProvider).contains(recipe.id);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(nowBookmarked ? '${recipe.name} saved to bookmarks' : 'Removed from bookmarks'),
+                backgroundColor: nowBookmarked ? AppColors.primary : AppColors.textSecondary,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+              ));
+            },
             child: Container(
               width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.9),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                size: 18,
-                color: _isBookmarked ? AppColors.primary : AppColors.textPrimary,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                  key: ValueKey(isBookmarked),
+                  size: 18,
+                  color: isBookmarked ? AppColors.primary : AppColors.textPrimary,
+                ),
               ),
             ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-          child: Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
-              shape: BoxShape.circle,
+          child: GestureDetector(
+            onTap: _shareRecipe,
+            child: Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.ios_share_rounded, size: 16, color: AppColors.textPrimary),
             ),
-            child: const Icon(Icons.ios_share_rounded, size: 16, color: AppColors.textPrimary),
           ),
         ),
       ],
@@ -112,14 +149,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              recipe.imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: AppColors.primaryLight,
-                child: const Center(child: Text('🍲', style: TextStyle(fontSize: 64))),
-              ),
-            ),
+            widget.isAiGenerated || recipe.imageUrl.isEmpty
+                ? Container(
+                    decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+                    child: const Center(
+                      child: Text('🤖', style: TextStyle(fontSize: 80)),
+                    ),
+                  )
+                : Image.network(
+                    recipe.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppColors.primaryLight,
+                      child: const Center(child: Text('🍲', style: TextStyle(fontSize: 64))),
+                    ),
+                  ),
             // Bottom gradient
             Positioned(
               bottom: 0, left: 0, right: 0,

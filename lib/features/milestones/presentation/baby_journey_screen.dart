@@ -14,6 +14,8 @@ import '../../../core/providers/milestones_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/milestone_model.dart';
 import '../../../models/memory_model.dart';
+import '../../../models/milestone_library.dart';
+import 'milestone_guidance_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Baby Journey Screen — Milestones + Memory Diary merged with TabBar
@@ -193,73 +195,77 @@ class _JourneyTabBar extends StatelessWidget {
 
 class _MilestonesTab extends ConsumerStatefulWidget {
   const _MilestonesTab();
-
   @override
   ConsumerState<_MilestonesTab> createState() => _MilestonesTabState();
 }
 
 class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
-  int _selectedAgeGroup = 2;
-
-  static const List<Map<String, String>> _ageGroups = [
-    {'label': '0-3\nMonths', 'emoji': '🍼'},
-    {'label': '4-6\nMonths', 'emoji': '🌱'},
-    {'label': '7-9\nMonths', 'emoji': '🧸'},
-    {'label': '10-12\nMonths', 'emoji': '🎀'},
-    {'label': '1-2\nYears', 'emoji': '🚶'},
-  ];
-
-  static const List<Map<String, String>> _ageBanners = [
-    {'title': '0–3 Months', 'desc': 'Your newborn is discovering the world through senses and bonding.', 'emoji': '🍼'},
-    {'title': '4–6 Months', 'desc': 'Your baby is becoming more alert, smiling and reaching for objects.', 'emoji': '🌱'},
-    {'title': '7–9 Months', 'desc': 'Your baby is exploring more, becoming more independent, and showing curiosity.', 'emoji': '🧸'},
-    {'title': '10–12 Months', 'desc': 'Your baby is pulling to stand and may be saying first words.', 'emoji': '🎀'},
-    {'title': '1–2 Years', 'desc': 'Your toddler is walking, talking and developing a big personality.', 'emoji': '🚶'},
-  ];
+  int _selectedBand = 10; // default 6-9 months
+  late final ScrollController _bandScroll;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMilestones());
+    _bandScroll = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
-  void _loadMilestones() {
+  @override
+  void dispose() {
+    _bandScroll.dispose();
+    super.dispose();
+  }
+
+  void _init() {
     final baby = ref.read(babyProvider).baby;
     if (baby == null) return;
-    ref.read(milestonesProvider.notifier).loadMilestones(baby.id, baby.ageInMonths);
-    // Set age group selector to match baby's actual age
-    _setAgeGroupFromAge(baby.ageInMonths);
+    final band = ageBandFromMonths(baby.ageInMonths);
+    setState(() => _selectedBand = band);
+    _loadBand(band);
+    // Scroll the chip into view
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_bandScroll.hasClients) {
+        _bandScroll.animateTo(
+          band * 80.0,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
-  void _setAgeGroupFromAge(int months) {
-    int group;
-    if (months <= 3) { group = 0; }
-    else if (months <= 6) { group = 1; }
-    else if (months <= 9) { group = 2; }
-    else if (months <= 12) { group = 3; }
-    else { group = 4; }
-    if (mounted) setState(() => _selectedAgeGroup = group);
+  void _loadBand(int band) {
+    final baby = ref.read(babyProvider).baby;
+    if (baby == null) return;
+    ref.read(milestonesProvider.notifier).loadMilestones(
+      baby.id, baby.ageInMonths, bandIndex: band,
+    );
+  }
+
+  void _selectBand(int band) {
+    setState(() => _selectedBand = band);
+    _loadBand(band);
   }
 
   @override
   Widget build(BuildContext context) {
     final msState = ref.watch(milestonesProvider);
-    final milestones = msState.categories.isNotEmpty ? msState.categories : sampleMilestones;
-    final totalAchieved = msState.categories.isNotEmpty ? msState.totalAchieved : milestones.fold<int>(0, (s, m) => s + m.achieved);
-    final totalInProgress = msState.categories.isNotEmpty ? msState.totalInProgress : milestones.fold<int>(0, (s, m) => s + m.inProgress);
-    final totalItems = msState.categories.isNotEmpty ? msState.totalItems : milestones.fold<int>(0, (s, m) => s + m.total);
-    final totalNotStarted = totalItems - totalAchieved - totalInProgress;
-    final percent = msState.categories.isNotEmpty ? msState.overallPercent : (totalItems == 0 ? 0.0 : totalAchieved / totalItems);
+    final guidance = msState.guidance.isNotEmpty
+        ? msState.guidance
+        : guidanceForAgeBand(_selectedBand);
+
+    final totalAchieved  = msState.totalAchieved;
+    final totalItems     = msState.totalItems;
+    final totalInProgress = msState.totalInProgress;
+    final totalNotStarted = msState.totalNotStarted;
+    final percent        = msState.overallPercent;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppConstants.paddingL, AppConstants.paddingL,
-        AppConstants.paddingL, 100,
-      ),
+      padding: const EdgeInsets.fromLTRB(0, AppConstants.paddingM, 0, 100),
       children: [
-        _buildAgeGroupSelector(),
+        _buildBandSelector(),
         const SizedBox(height: AppConstants.paddingM),
-        _buildAgeBanner(),
+        _buildBandBanner(),
         const SizedBox(height: AppConstants.paddingM),
         if (msState.isLoading)
           const Center(child: Padding(
@@ -267,67 +273,78 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
             child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
           ))
         else ...[
-          _buildOverallProgress(totalAchieved, totalItems, totalInProgress, totalNotStarted, percent),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
+            child: _buildOverallProgress(totalAchieved, totalItems, totalInProgress, totalNotStarted, percent),
+          ),
           const SizedBox(height: AppConstants.paddingXL),
-          _buildDevelopmentAreas(milestones),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
+            child: _buildCategoryGrid(guidance),
+          ),
           const SizedBox(height: AppConstants.paddingM),
-          _buildEncouragementCard(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
+            child: _buildEncouragementCard(),
+          ),
         ],
       ],
     );
   }
 
-  Widget _buildAgeGroupSelector() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _ageGroups.asMap().entries.map((e) {
-          final i = e.key;
-          final isSelected = _selectedAgeGroup == i;
-          return Padding(
-            padding: EdgeInsets.only(right: i < _ageGroups.length - 1 ? AppConstants.paddingS : 0),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedAgeGroup = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                  border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.divider,
-                    width: 1.5,
-                  ),
+  Widget _buildBandSelector() {
+    return SizedBox(
+      height: 72,
+      child: ListView.separated(
+        controller: _bandScroll,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
+        itemCount: ageBands.length,
+        separatorBuilder: (_, __) => const SizedBox(width: AppConstants.paddingS),
+        itemBuilder: (_, i) {
+          final band = ageBands[i];
+          final isSelected = _selectedBand == i;
+          return GestureDetector(
+            onTap: () => _selectBand(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : AppColors.surface,
+                borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : AppColors.divider,
+                  width: 1.5,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_ageGroups[i]['emoji']!, style: const TextStyle(fontSize: 18)),
-                    const SizedBox(height: 3),
-                    Text(
-                      _ageGroups[i]['label']!,
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: isSelected ? Colors.white : AppColors.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(band.emoji, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 3),
+                  Text(
+                    band.shortLabel,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
-        }).toList(),
+        },
       ),
     );
   }
 
-  Widget _buildAgeBanner() {
-    final banner = _ageBanners[_selectedAgeGroup];
+  Widget _buildBandBanner() {
+    final band = ageBands[_selectedBand];
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       child: Container(
-        key: ValueKey(_selectedAgeGroup),
+        key: ValueKey(_selectedBand),
+        margin: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
         padding: const EdgeInsets.all(AppConstants.paddingL),
         decoration: BoxDecoration(
           gradient: AppColors.softPurpleGradient,
@@ -340,14 +357,14 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(banner['title']!, style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
-                  const SizedBox(height: 6),
-                  Text(banner['desc']!, style: AppTextStyles.bodyMedium),
+                  Text(band.label, style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
+                  const SizedBox(height: 4),
+                  Text('Tap a category to see milestones, activities and guidance.', style: AppTextStyles.bodySmall),
                 ],
               ),
             ),
             const SizedBox(width: AppConstants.paddingM),
-            Text(banner['emoji']!, style: const TextStyle(fontSize: 52)),
+            Text(band.emoji, style: const TextStyle(fontSize: 44)),
           ],
         ),
       ),
@@ -363,7 +380,7 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Overall Progress', style: AppTextStyles.titleLarge),
-              Text('$achieved / $total Achieved', style: AppTextStyles.bodySmall),
+              Text('$achieved / $total Done', style: AppTextStyles.bodySmall),
             ],
           ),
           const SizedBox(height: AppConstants.paddingM),
@@ -379,17 +396,15 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
           const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerRight,
-            child: Text(
-              '${(percent * 100).toInt()}%',
-              style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
-            ),
+            child: Text('${(percent * 100).toInt()}%',
+              style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(height: AppConstants.paddingM),
           Wrap(
             spacing: AppConstants.paddingL,
             runSpacing: 4,
             children: [
-              _ProgressLegend(color: AppColors.accentGreen, label: 'Achieved ($achieved)'),
+              _ProgressLegend(color: AppColors.accentGreen, label: 'Done ($achieved)'),
               _ProgressLegend(color: AppColors.warning, label: 'In Progress ($inProgress)'),
               _ProgressLegend(color: AppColors.textHint, label: 'Not Started ($notStarted)'),
             ],
@@ -399,28 +414,27 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
     );
   }
 
-  Widget _buildDevelopmentAreas(List<MilestoneCategoryProgress> milestones) {
+  Widget _buildCategoryGrid(List<CategoryGuidance> guidance) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Development Areas', style: AppTextStyles.headlineSmall),
-            Row(
-              children: [
-                Text('Why it matters?', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
-                const SizedBox(width: 2),
-                const Icon(Icons.help_outline_rounded, size: 14, color: AppColors.primary),
-              ],
-            ),
-          ],
-        ),
+        Text('Development Areas', style: AppTextStyles.headlineSmall),
         const SizedBox(height: AppConstants.paddingM),
-        ...milestones.map((m) => Padding(
-              padding: const EdgeInsets.only(bottom: AppConstants.paddingS),
-              child: _DevelopmentAreaCard(milestone: m),
-            )),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: AppConstants.paddingM,
+            mainAxisSpacing: AppConstants.paddingM,
+            childAspectRatio: 1.1,
+          ),
+          itemCount: guidance.length,
+          itemBuilder: (_, i) => _CategoryCard(
+            guidance: guidance[i],
+            onTap: () => _openGuidance(guidance[i]),
+          ),
+        ),
       ],
     );
   }
@@ -436,12 +450,8 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
+            width: 44, height: 44,
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
             child: const Center(child: Text('⭐', style: TextStyle(fontSize: 22))),
           ),
           const SizedBox(width: AppConstants.paddingM),
@@ -450,10 +460,10 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Great job, Mom! 🎉', style: AppTextStyles.titleLarge.copyWith(color: Colors.white)),
+                Text('Great job! 🎉', style: AppTextStyles.titleLarge.copyWith(color: Colors.white)),
                 const SizedBox(height: 4),
                 Text(
-                  '${baby.name} is meeting most of her milestones. Keep nurturing and engaging with her.',
+                  '${baby.name} is growing beautifully. Keep nurturing and engaging every day.',
                   style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                 ),
               ],
@@ -464,9 +474,103 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
       ),
     );
   }
+
+  void _openGuidance(CategoryGuidance guidance) {
+    final baby = ref.read(babyProvider).baby ?? sampleBaby;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MilestoneGuidanceScreen(
+          guidance: guidance,
+          babyName: baby.name,
+          babyAge: baby.ageString,
+          onStatusChanged: (id, status) =>
+              ref.read(milestonesProvider.notifier).updateMilestoneStatus(id, status),
+        ),
+      ),
+    );
+  }
 }
 
-// ─── Milestone sub-widgets ────────────────────────────────────────────────────
+// ── Category card (grid tile) ─────────────────────────────────────────────────
+
+class _CategoryCard extends StatelessWidget {
+  final CategoryGuidance guidance;
+  final VoidCallback onTap;
+  const _CategoryCard({required this.guidance, required this.onTap});
+
+  Color get _bg {
+    switch (guidance.category) {
+      case MilestoneCategory.grossMotor:   return AppColors.accentGreenLight;
+      case MilestoneCategory.fineMotor:    return AppColors.accentOrangeLight;
+      case MilestoneCategory.language:     return AppColors.primaryLight;
+      case MilestoneCategory.cognitive:    return AppColors.accentBlueLight;
+      case MilestoneCategory.social:       return AppColors.accentPinkLight;
+      case MilestoneCategory.feedingSleep: return const Color(0xFFFFF8E1);
+    }
+  }
+
+  Color get _accent {
+    switch (guidance.category) {
+      case MilestoneCategory.grossMotor:   return AppColors.accentGreen;
+      case MilestoneCategory.fineMotor:    return AppColors.accentOrange;
+      case MilestoneCategory.language:     return AppColors.primary;
+      case MilestoneCategory.cognitive:    return AppColors.accentBlue;
+      case MilestoneCategory.social:       return AppColors.accentPink;
+      case MilestoneCategory.feedingSleep: return const Color(0xFFFF8F00);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final done = guidance.achieved;
+    final total = guidance.totalMilestones;
+    final pct = guidance.progressPercent;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(AppConstants.paddingM),
+        decoration: BoxDecoration(
+          color: _bg,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+          border: Border.all(color: _accent.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(guidance.category.emoji, style: const TextStyle(fontSize: 26)),
+                const Spacer(),
+                Text('$done/$total', style: AppTextStyles.labelSmall.copyWith(color: _accent, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: AppConstants.paddingS),
+            Text(guidance.category.label, style: AppTextStyles.titleMedium),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 5,
+                backgroundColor: _accent.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(_accent),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              guidance.category.description,
+              style: AppTextStyles.labelSmall,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _ProgressLegend extends StatelessWidget {
   final Color color;
@@ -485,116 +589,6 @@ class _ProgressLegend extends StatelessWidget {
     );
   }
 }
-
-class _DevelopmentAreaCard extends ConsumerWidget {
-  final MilestoneCategoryProgress milestone;
-  const _DevelopmentAreaCard({required this.milestone});
-
-  Color get _bgColor {
-    switch (milestone.category) {
-      case MilestoneCategory.grossMotor: return AppColors.accentGreenLight;
-      case MilestoneCategory.fineMotor: return AppColors.accentOrangeLight;
-      case MilestoneCategory.language: return AppColors.primaryLight;
-      case MilestoneCategory.socialEmotional: return AppColors.accentPinkLight;
-      case MilestoneCategory.cognitive: return AppColors.accentBlueLight;
-    }
-  }
-
-  Color get _accentColor {
-    switch (milestone.category) {
-      case MilestoneCategory.grossMotor: return AppColors.accentGreen;
-      case MilestoneCategory.fineMotor: return AppColors.accentOrange;
-      case MilestoneCategory.language: return AppColors.primary;
-      case MilestoneCategory.socialEmotional: return AppColors.accentPink;
-      case MilestoneCategory.cognitive: return AppColors.accentBlue;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return AppCard(
-      onTap: () => _showMilestoneSheet(context, ref),
-      child: Row(
-        children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
-            child: Center(child: Text(milestone.category.emoji, style: const TextStyle(fontSize: 22))),
-          ),
-          const SizedBox(width: AppConstants.paddingM),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(milestone.category.label, style: AppTextStyles.titleMedium),
-                Text('${milestone.achieved} / ${milestone.total} Milestones Achieved', style: AppTextStyles.bodySmall),
-              ],
-            ),
-          ),
-          Row(
-            children: List.generate(milestone.total > 5 ? 5 : milestone.total, (i) {
-              MilestoneStatus s;
-              if (i < milestone.achieved) { s = MilestoneStatus.achieved; }
-              else if (i < milestone.achieved + milestone.inProgress) { s = MilestoneStatus.inProgress; }
-              else { s = MilestoneStatus.notStarted; }
-              return Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: _StatusDot(status: s),
-              );
-            }),
-          ),
-          const SizedBox(width: AppConstants.paddingS),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.textHint, size: 20),
-        ],
-      ),
-    );
-  }
-
-  void _showMilestoneSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _MilestoneDetailSheet(
-        milestone: milestone,
-        accentColor: _accentColor,
-        bgColor: _bgColor,
-        onStatusChanged: (itemId, newStatus) {
-          ref.read(milestonesProvider.notifier).updateMilestoneStatus(itemId, newStatus);
-        },
-      ),
-    );
-  }
-}
-
-class _StatusDot extends StatelessWidget {
-  final MilestoneStatus status;
-  const _StatusDot({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    Color color;
-    IconData? icon;
-    switch (status) {
-      case MilestoneStatus.achieved: color = AppColors.accentGreen; icon = Icons.check_rounded;
-      case MilestoneStatus.inProgress: color = AppColors.warning; icon = Icons.check_rounded;
-      case MilestoneStatus.notStarted: color = AppColors.textHint; icon = null;
-    }
-    return Container(
-      width: 20, height: 20,
-      decoration: BoxDecoration(
-        color: icon != null ? color : Colors.transparent,
-        shape: BoxShape.circle,
-        border: icon == null ? Border.all(color: color, width: 1.5) : null,
-      ),
-      child: icon != null ? Icon(icon, size: 12, color: Colors.white) : null,
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TAB 2 — MEMORY DIARY
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _MemoryDiaryTab extends ConsumerStatefulWidget {
@@ -697,6 +691,43 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
         onSave: (e) => setState(() => _memories.insert(0, e)),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteFromGrid(MemoryEntry memory) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusL)),
+        title: const Text('Delete Memory?'),
+        content: const Text('This will permanently delete this photo. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: AppTextStyles.titleMedium.copyWith(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await Supabase.instance.client.from('memories').delete().eq('id', memory.id);
+      if (memory.imageUrl != null) {
+        await CloudinaryService.deletePhoto(memory.imageUrl!);
+      }
+      if (mounted) setState(() => _memories.removeWhere((m) => m.id == memory.id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to delete: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
   }
 
   @override
@@ -808,7 +839,16 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       ),
       itemCount: memories.length,
       itemBuilder: (_, i) => GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => _MemoryDetailScreen(memory: memories[i]))),
+        onTap: () async {
+          final deletedId = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(builder: (_) => _MemoryDetailScreen(memory: memories[i])),
+          );
+          if (deletedId != null && mounted) {
+            setState(() => _memories.removeWhere((m) => m.id == deletedId));
+          }
+        },
+        onLongPress: () => _confirmDeleteFromGrid(memories[i]),
         child: _MemoryGridTile(memory: memories[i]),
       ),
     );
@@ -1033,10 +1073,11 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
         );
       }
 
-      // Save to Supabase memories table
+      // Save to Supabase memories table — use .select().single() to get the real UUID back
+      String savedId = DateTime.now().millisecondsSinceEpoch.toString(); // fallback
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId != null && widget.baby.id.isNotEmpty) {
-        await Supabase.instance.client.from('memories').insert({
+        final inserted = await Supabase.instance.client.from('memories').insert({
           'baby_id': widget.baby.id,
           'user_id': userId,
           'image_url': imageUrl,
@@ -1044,12 +1085,13 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
           'tag': _selectedTag.dbValue,
           'age_months': widget.baby.ageInMonths,
           'memory_date': DateTime.now().toIso8601String().split('T').first,
-        });
+        }).select().single();
+        savedId = inserted['id'] as String; // real UUID from Postgres
       }
 
-      // Also update local state immediately for instant UI feedback
+      // Update local state with the real UUID so delete works immediately
       widget.onSave(MemoryEntry(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: savedId,
         babyId: widget.baby.id,
         imagePath: imageUrl == null ? widget.imagePath : null,
         imageUrl: imageUrl,
@@ -1166,13 +1208,77 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
   }
 }
 
-class _MemoryDetailScreen extends StatelessWidget {
+class _MemoryDetailScreen extends StatefulWidget {
   final MemoryEntry memory;
   const _MemoryDetailScreen({required this.memory});
+
+  @override
+  State<_MemoryDetailScreen> createState() => _MemoryDetailScreenState();
+}
+
+class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
+  bool _deleting = false;
 
   String _formatDate(DateTime d) {
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusL)),
+        title: const Text('Delete Memory?'),
+        content: const Text('This will permanently delete this photo and remove it from your diary. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: AppTextStyles.titleMedium.copyWith(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    _deleteMemory();
+  }
+
+  Future<void> _deleteMemory() async {
+    setState(() => _deleting = true);
+    debugPrint('[Delete] Attempting to delete memory id=${widget.memory.id}, imageUrl=${widget.memory.imageUrl}');
+    try {
+      // 1. Delete Supabase row
+      final result = await Supabase.instance.client
+          .from('memories')
+          .delete()
+          .eq('id', widget.memory.id)
+          .select();
+      debugPrint('[Delete] Supabase delete result: $result');
+
+      // 2. Attempt Cloudinary deletion
+      if (widget.memory.imageUrl != null) {
+        final publicId = CloudinaryService.extractPublicId(widget.memory.imageUrl!);
+        debugPrint('[Delete] Cloudinary public_id: $publicId');
+        await CloudinaryService.deletePhoto(widget.memory.imageUrl!);
+      }
+
+      if (mounted) {
+        Navigator.pop(context, widget.memory.id);
+      }
+    } catch (e) {
+      debugPrint('[Delete] ERROR: $e');
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to delete: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
   }
 
   @override
@@ -1183,13 +1289,14 @@ class _MemoryDetailScreen extends StatelessWidget {
         children: [
           Positioned.fill(
             child: InteractiveViewer(
-              child: memory.imagePath != null
-                  ? Image.file(File(memory.imagePath!), fit: BoxFit.contain)
-                  : memory.imageUrl != null
-                      ? Image.network(memory.imageUrl!, fit: BoxFit.contain)
+              child: widget.memory.imagePath != null
+                  ? Image.file(File(widget.memory.imagePath!), fit: BoxFit.contain)
+                  : widget.memory.imageUrl != null
+                      ? Image.network(widget.memory.imageUrl!, fit: BoxFit.contain)
                       : const Center(child: Icon(Icons.image_rounded, color: Colors.white54, size: 64)),
             ),
           ),
+          // Top bar
           Positioned(
             top: 0, left: 0, right: 0,
             child: SafeArea(
@@ -1214,11 +1321,24 @@ class _MemoryDetailScreen extends StatelessWidget {
                       ),
                       onPressed: () {},
                     ),
+                    const SizedBox(width: 8),
+                    // Delete button
+                    IconButton(
+                      icon: Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.7), shape: BoxShape.circle),
+                        child: _deleting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 18),
+                      ),
+                      onPressed: _deleting ? null : _confirmDelete,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
+          // Bottom info bar
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: Container(
@@ -1245,13 +1365,13 @@ class _MemoryDetailScreen extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(memory.tag.emoji, style: const TextStyle(fontSize: 12)),
+                              Text(widget.memory.tag.emoji, style: const TextStyle(fontSize: 12)),
                               const SizedBox(width: 4),
-                              Text(memory.tag.label, style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
+                              Text(widget.memory.tag.label, style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
                             ],
                           ),
                         ),
-                        if (memory.ageMonths != null) ...[
+                        if (widget.memory.ageMonths != null) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1259,17 +1379,17 @@ class _MemoryDetailScreen extends StatelessWidget {
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(AppConstants.radiusFull),
                             ),
-                            child: Text('${memory.ageMonths} months old', style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
+                            child: Text('${widget.memory.ageMonths} months old', style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
                           ),
                         ],
                       ],
                     ),
-                    if (memory.caption != null) ...[
+                    if (widget.memory.caption != null) ...[
                       const SizedBox(height: 10),
-                      Text(memory.caption!, style: AppTextStyles.bodyLarge.copyWith(color: Colors.white)),
+                      Text(widget.memory.caption!, style: AppTextStyles.bodyLarge.copyWith(color: Colors.white)),
                     ],
                     const SizedBox(height: 6),
-                    Text(_formatDate(memory.date), style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
+                    Text(_formatDate(widget.memory.date), style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
                   ],
                 ),
               ),
@@ -1278,215 +1398,5 @@ class _MemoryDetailScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-
-// ─── Milestone Detail Sheet ───────────────────────────────────────────────────
-
-class _MilestoneDetailSheet extends StatelessWidget {
-  final MilestoneCategoryProgress milestone;
-  final Color accentColor;
-  final Color bgColor;
-  final void Function(String itemId, MilestoneStatus status) onStatusChanged;
-
-  const _MilestoneDetailSheet({
-    required this.milestone,
-    required this.accentColor,
-    required this.bgColor,
-    required this.onStatusChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(AppConstants.paddingL),
-      padding: const EdgeInsets.all(AppConstants.paddingXL),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(child: Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
-          )),
-          const SizedBox(height: AppConstants.paddingL),
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
-                child: Center(child: Text(milestone.category.emoji, style: const TextStyle(fontSize: 22))),
-              ),
-              const SizedBox(width: AppConstants.paddingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(milestone.category.label, style: AppTextStyles.headlineSmall),
-                    Text(
-                      '${milestone.achieved} of ${milestone.total} achieved',
-                      style: AppTextStyles.bodySmall.copyWith(color: accentColor),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppConstants.paddingL),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-            child: LinearProgressIndicator(
-              value: milestone.progressPercent,
-              minHeight: 8,
-              backgroundColor: bgColor,
-              valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-            ),
-          ),
-          const SizedBox(height: AppConstants.paddingXL),
-          // Milestone items list
-          Text('Milestones', style: AppTextStyles.titleLarge),
-          const SizedBox(height: AppConstants.paddingM),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.45,
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: milestone.items.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.divider),
-              itemBuilder: (context, index) {
-                final item = milestone.items[index];
-                return _MilestoneItemRow(
-                  item: item,
-                  accentColor: accentColor,
-                  onStatusChanged: (newStatus) {
-                    onStatusChanged(item.id, newStatus);
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: AppConstants.paddingM),
-        ],
-      ),
-    );
-  }
-}
-
-class _MilestoneItemRow extends StatelessWidget {
-  final MilestoneItem item;
-  final Color accentColor;
-  final void Function(MilestoneStatus) onStatusChanged;
-
-  const _MilestoneItemRow({
-    required this.item,
-    required this.accentColor,
-    required this.onStatusChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppConstants.paddingM),
-      child: Row(
-        children: [
-          // Status icon — tappable to cycle through states
-          GestureDetector(
-            onTap: () => _cycleStatus(context),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 28, height: 28,
-              decoration: BoxDecoration(
-                color: item.status == MilestoneStatus.notStarted
-                    ? Colors.transparent
-                    : item.status == MilestoneStatus.inProgress
-                        ? AppColors.warning
-                        : accentColor,
-                shape: BoxShape.circle,
-                border: item.status == MilestoneStatus.notStarted
-                    ? Border.all(color: AppColors.textHint, width: 2)
-                    : null,
-              ),
-              child: item.status != MilestoneStatus.notStarted
-                  ? Icon(
-                      item.status == MilestoneStatus.achieved
-                          ? Icons.check_rounded
-                          : Icons.timelapse_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: AppConstants.paddingM),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  item.title,
-                  style: AppTextStyles.titleMedium.copyWith(
-                    decoration: item.status == MilestoneStatus.achieved
-                        ? TextDecoration.none
-                        : null,
-                    color: item.status == MilestoneStatus.achieved
-                        ? AppColors.textSecondary
-                        : AppColors.textPrimary,
-                  ),
-                ),
-                if (item.achievedDate != null)
-                  Text(
-                    'Achieved on ${item.achievedDate}',
-                    style: AppTextStyles.labelSmall.copyWith(color: accentColor),
-                  ),
-              ],
-            ),
-          ),
-          // Quick action chips
-          if (item.status != MilestoneStatus.achieved)
-            GestureDetector(
-              onTap: () => onStatusChanged(MilestoneStatus.achieved),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                ),
-                child: Text(
-                  'Mark Done',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: accentColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _cycleStatus(BuildContext context) {
-    MilestoneStatus next;
-    switch (item.status) {
-      case MilestoneStatus.notStarted:
-        next = MilestoneStatus.inProgress;
-      case MilestoneStatus.inProgress:
-        next = MilestoneStatus.achieved;
-      case MilestoneStatus.achieved:
-        next = MilestoneStatus.notStarted;
-    }
-    onStatusChanged(next);
   }
 }

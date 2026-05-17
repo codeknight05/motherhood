@@ -1,188 +1,140 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/milestone_model.dart';
+import '../../models/milestone_library.dart';
 
-// ── Milestone state ───────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 
 class MilestonesState {
-  final List<MilestoneCategoryProgress> categories;
+  final List<CategoryGuidance> guidance;   // 6 categories for selected age band
+  final int selectedBandIndex;
   final bool isLoading;
   final String? error;
 
   const MilestonesState({
-    this.categories = const [],
+    this.guidance = const [],
+    this.selectedBandIndex = 10, // default: 6-9 months
     this.isLoading = false,
     this.error,
   });
 
-  int get totalAchieved => categories.fold(0, (s, c) => s + c.achieved);
-  int get totalItems => categories.fold(0, (s, c) => s + c.total);
-  int get totalInProgress => categories.fold(0, (s, c) => s + c.inProgress);
+  // Backward-compat: home screen ring uses MilestoneCategoryProgress
+  List<MilestoneCategoryProgress> get categories =>
+      guidance.map(MilestoneCategoryProgress.fromGuidance).toList();
+
+  int get totalAchieved => guidance.fold(0, (s, g) => s + g.achieved);
+  int get totalItems    => guidance.fold(0, (s, g) => s + g.totalMilestones);
+  int get totalInProgress => guidance.fold(0, (s, g) => s + g.inProgress);
   int get totalNotStarted => totalItems - totalAchieved - totalInProgress;
   double get overallPercent => totalItems == 0 ? 0.0 : totalAchieved / totalItems;
 
   MilestonesState copyWith({
-    List<MilestoneCategoryProgress>? categories,
+    List<CategoryGuidance>? guidance,
+    int? selectedBandIndex,
     bool? isLoading,
     String? error,
   }) {
     return MilestonesState(
-      categories: categories ?? this.categories,
+      guidance: guidance ?? this.guidance,
+      selectedBandIndex: selectedBandIndex ?? this.selectedBandIndex,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
   }
 }
 
-// ── Milestone notifier ────────────────────────────────────────────────────────
+// ── Notifier ──────────────────────────────────────────────────────────────────
 
 class MilestonesNotifier extends StateNotifier<MilestonesState> {
   MilestonesNotifier() : super(const MilestonesState());
 
   final _client = Supabase.instance.client;
 
-  /// Load milestones for the given baby from Supabase.
-  /// If none exist yet, auto-populate from milestone_definitions.
-  Future<void> loadMilestones(String babyId, int ageInMonths) async {
-    state = state.copyWith(isLoading: true, error: null);
+  /// Load guidance for [bandIndex]. If null, derives from [ageInMonths].
+  Future<void> loadMilestones(
+    String babyId,
+    int ageInMonths, {
+    int? bandIndex,
+  }) async {
+    final band = bandIndex ?? ageBandFromMonths(ageInMonths);
+    state = state.copyWith(isLoading: true, error: null, selectedBandIndex: band);
+
+    // 1. Get library defaults for this band (all notStarted)
+    final libraryGuidance = guidanceForAgeBand(band);
+
     try {
-      // Check if milestones already exist for this baby
-      final existing = await _client
-          .from('milestones')
-          .select()
-          .eq('baby_id', babyId)
-          .limit(1);
-
-      if ((existing as List).isEmpty) {
-        // First time — auto-populate from definitions
-        await _client.rpc('populate_milestones_for_baby', params: {
-          'p_baby_id': babyId,
-          'p_age_months': ageInMonths,
-        });
-      }
-
-      // Fetch all milestones for this baby
+      // 2. Fetch Supabase statuses for this baby
       final rows = await _client
           .from('milestones')
-          .select()
-          .eq('baby_id', babyId)
-          .order('category')
-          .order('created_at');
+          .select('title, category, status, achieved_at')
+          .eq('baby_id', babyId);
 
-      final categories = _groupByCategory(rows as List<dynamic>);
-      state = state.copyWith(categories: categories, isLoading: false);
+      // Build a lookup: title_lower → (status, achievedDate)
+      final Map<String, (MilestoneStatus, String?)> statusMap = {};
+      for (final row in (rows as List)) {
+        final title = (row['title'] as String).toLowerCase();
+        final status = _statusFromDb(row['status'] as String? ?? 'not_started');
+        final date = row['achieved_at'] as String?;
+        statusMap[title] = (status, date);
+      }
+
+      // 3. Overlay Supabase statuses onto library guidance
+      final enriched = libraryGuidance
+          .map((g) => enrichGuidance(g, statusMap))
+          .toList();
+
+      state = state.copyWith(guidance: enriched, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Fall back to library defaults on error
+      state = state.copyWith(
+        guidance: libraryGuidance,
+        isLoading: false,
+        error: e.toString(),
+      );
     }
   }
 
-  /// Update a single milestone's status.
+  /// Update a single milestone's status (persists to Supabase).
   Future<void> updateMilestoneStatus(
     String milestoneId,
     MilestoneStatus newStatus,
   ) async {
+    // Update local state immediately
+    final updated = state.guidance.map((g) {
+      final idx = g.milestones.indexWhere((m) => m.id == milestoneId);
+      if (idx == -1) return g;
+      return g.withUpdatedMilestone(milestoneId, newStatus);
+    }).toList();
+    state = state.copyWith(guidance: updated);
+
+    // Persist to Supabase (best-effort — local state already updated)
     try {
-      await _client.from('milestones').update({
+      await _client.from('milestones').upsert({
+        'id': milestoneId,
         'status': _statusToDb(newStatus),
         if (newStatus == MilestoneStatus.achieved)
           'achieved_at': DateTime.now().toIso8601String().split('T').first,
-      }).eq('id', milestoneId);
-
-      // Update local state immediately for instant UI feedback
-      final updated = state.categories.map((cat) {
-        final updatedItems = cat.items.map((item) {
-          if (item.id == milestoneId) {
-            return MilestoneItem(
-              id: item.id,
-              title: item.title,
-              category: item.category,
-              status: newStatus,
-              achievedDate: newStatus == MilestoneStatus.achieved
-                  ? DateTime.now().toIso8601String().split('T').first
-                  : null,
-            );
-          }
-          return item;
-        }).toList();
-
-        final achieved = updatedItems.where((i) => i.status == MilestoneStatus.achieved).length;
-        final inProgress = updatedItems.where((i) => i.status == MilestoneStatus.inProgress).length;
-
-        return MilestoneCategoryProgress(
-          category: cat.category,
-          total: cat.total,
-          achieved: achieved,
-          inProgress: inProgress,
-          items: updatedItems,
-        );
-      }).toList();
-
-      state = state.copyWith(categories: updated);
-    } catch (e) {
-      // Silently fail — UI already updated, will sync on next load
+      });
+    } catch (_) {
+      // Silently fail — UI already updated
     }
   }
 
   void clear() => state = const MilestonesState();
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-
-  List<MilestoneCategoryProgress> _groupByCategory(List<dynamic> rows) {
-    final Map<MilestoneCategory, List<MilestoneItem>> grouped = {};
-
-    for (final row in rows) {
-      final category = _categoryFromDb(row['category'] as String);
-      final item = MilestoneItem(
-        id: row['id'] as String,
-        title: row['title'] as String,
-        category: category,
-        status: _statusFromDb(row['status'] as String? ?? 'not_started'),
-        achievedDate: row['achieved_at'] as String?,
-      );
-      grouped.putIfAbsent(category, () => []).add(item);
-    }
-
-    // Return in a consistent order
-    return MilestoneCategory.values
-        .where((c) => grouped.containsKey(c))
-        .map((c) {
-          final items = grouped[c]!;
-          final achieved = items.where((i) => i.status == MilestoneStatus.achieved).length;
-          final inProgress = items.where((i) => i.status == MilestoneStatus.inProgress).length;
-          return MilestoneCategoryProgress(
-            category: c,
-            total: items.length,
-            achieved: achieved,
-            inProgress: inProgress,
-            items: items,
-          );
-        })
-        .toList();
-  }
-
-  MilestoneCategory _categoryFromDb(String value) {
-    switch (value) {
-      case 'gross_motor':       return MilestoneCategory.grossMotor;
-      case 'fine_motor':        return MilestoneCategory.fineMotor;
-      case 'language':          return MilestoneCategory.language;
-      case 'social_emotional':  return MilestoneCategory.socialEmotional;
-      default:                  return MilestoneCategory.cognitive;
-    }
-  }
-
-  MilestoneStatus _statusFromDb(String value) {
-    switch (value) {
+  MilestoneStatus _statusFromDb(String v) {
+    switch (v) {
       case 'achieved':    return MilestoneStatus.achieved;
       case 'in_progress': return MilestoneStatus.inProgress;
       default:            return MilestoneStatus.notStarted;
     }
   }
 
-  String _statusToDb(MilestoneStatus status) {
-    switch (status) {
-      case MilestoneStatus.achieved:    return 'achieved';
-      case MilestoneStatus.inProgress:  return 'in_progress';
-      case MilestoneStatus.notStarted:  return 'not_started';
+  String _statusToDb(MilestoneStatus s) {
+    switch (s) {
+      case MilestoneStatus.achieved:   return 'achieved';
+      case MilestoneStatus.inProgress: return 'in_progress';
+      case MilestoneStatus.notStarted: return 'not_started';
     }
   }
 }
