@@ -89,8 +89,20 @@ const List<AgeBand> ageBands = [
 ];
 
 /// Returns the age band index for a baby of [ageInMonths].
+/// Uses days-based lookup for precision — avoids month rounding errors.
 int ageBandFromMonths(int months) {
+  // Convert months to approximate days (30 days/month)
+  // For exact matching, prefer ageBandFromDays when birthDate is available
   final days = months * 30;
+  for (final band in ageBands) {
+    if (band.containsDays(days)) return band.index;
+  }
+  return ageBands.length - 1;
+}
+
+/// Returns the age band index for a baby born [days] ago.
+/// More precise than ageBandFromMonths.
+int ageBandFromDays(int days) {
   for (final band in ageBands) {
     if (band.containsDays(days)) return band.index;
   }

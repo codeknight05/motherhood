@@ -201,44 +201,87 @@ class _MilestonesTab extends ConsumerStatefulWidget {
   ConsumerState<_MilestonesTab> createState() => _MilestonesTabState();
 }
 
-class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
-  int _selectedBand = 10; // default 6-9 months
+class _MilestonesTabState extends ConsumerState<_MilestonesTab>
+    with WidgetsBindingObserver {
+  int _selectedBand = 10;
+  bool _bandInitialised = false;
+  int _babyBand = 10;
   late final ScrollController _bandScroll;
 
   @override
   void initState() {
     super.initState();
     _bandScroll = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
-  }
-
-  @override
-  void dispose() {
-    _bandScroll.dispose();
-    super.dispose();
-  }
-
-  void _init() {
-    final baby = ref.read(babyProvider).baby;
-    if (baby == null) return;
-    final band = ageBandFromMonths(baby.ageInMonths);
-    setState(() => _selectedBand = band);
-    _loadBand(band);
-    // Scroll the chip into view
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_bandScroll.hasClients) {
-        _bandScroll.animateTo(
-          band * 80.0,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-        );
+      ref.listenManual<BabyState>(babyProvider, (prev, next) {
+        if (!_bandInitialised && next.baby != null) {
+          setState(() => _initFromBaby(next.baby));
+        }
+      });
+      final baby = ref.read(babyProvider).baby;
+      if (!_bandInitialised && baby != null) {
+        setState(() => _initFromBaby(baby));
       }
     });
   }
 
-  void _loadBand(int band) {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bandScroll.dispose();
+    super.dispose();
+  }
+
+  // Item 4 — recalculate band when app resumes (handles day-change across sessions)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final baby = ref.read(babyProvider).baby;
+      if (baby != null) {
+        final newBand = _bandForBaby(baby);
+        if (newBand != _babyBand) {
+          // Baby has moved to a new age band since last open
+          setState(() {
+            _babyBand = newBand;
+            _bandInitialised = false;
+          });
+          _initFromBaby(baby);
+        }
+      }
+    }
+  }
+
+  void _initFromBaby(baby) {
+    if (_bandInitialised || baby == null) return;
+    _bandInitialised = true;
+    final band = _bandForBaby(baby);
+    _selectedBand = band;
+    _babyBand = band;
+    _loadBand(band);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBand(band));
+  }
+
+  int _bandForBaby(baby) {
+    if (baby.birthDate == null) return 10;
+    final days = DateTime.now().difference(baby.birthDate!).inDays;
+    return ageBandFromDays(days);
+  }
+
+  void _scrollToBand(int band) {
+    if (!_bandScroll.hasClients) return;
+    _bandScroll.animateTo(
+      band * 80.0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _loadBand(int band, {bool forceRefresh = false}) {
     final baby = ref.read(babyProvider).baby;
     if (baby == null) return;
+    final current = ref.read(milestonesProvider);
+    if (!forceRefresh && current.guidance.isNotEmpty && current.selectedBandIndex == band) return;
     ref.read(milestonesProvider.notifier).loadMilestones(
       baby.id, baby.ageInMonths, bandIndex: band,
     );
@@ -247,6 +290,17 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
   void _selectBand(int band) {
     setState(() => _selectedBand = band);
     _loadBand(band);
+    _scrollToBand(band);
+  }
+
+  // Item 1 — pull-to-refresh
+  Future<void> _onRefresh() async {
+    _loadBand(_selectedBand, forceRefresh: true);
+    // Wait for loading to complete
+    await Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return ref.read(milestonesProvider).isLoading;
+    }).timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 
   @override
@@ -262,7 +316,10 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
     final totalNotStarted = msState.totalNotStarted;
     final percent        = msState.overallPercent;
 
-    return ListView(
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppColors.primary,
+      child: ListView(
       padding: const EdgeInsets.fromLTRB(0, AppConstants.paddingM, 0, 100),
       children: [
         _buildBandSelector(),
@@ -291,12 +348,13 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
           ),
         ],
       ],
+    ),
     );
   }
 
   Widget _buildBandSelector() {
     return SizedBox(
-      height: 72,
+      height: 84,
       child: ListView.separated(
         controller: _bandScroll,
         scrollDirection: Axis.horizontal,
@@ -306,33 +364,59 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
         itemBuilder: (_, i) {
           final band = ageBands[i];
           final isSelected = _selectedBand == i;
+          final isBabyAge = _babyBand == i;
           return GestureDetector(
             onTap: () => _selectBand(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.divider,
-                  width: 1.5,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Item 6 — "your baby" label above the chip
+                SizedBox(
+                  height: 14,
+                  child: isBabyAge
+                      ? Text(
+                          '👶 Now',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 9,
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(band.emoji, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 3),
-                  Text(
-                    band.shortLabel,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 2),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary : AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    border: Border.all(
+                      color: isBabyAge && !isSelected
+                          ? AppColors.primary
+                          : isSelected
+                              ? AppColors.primary
+                              : AppColors.divider,
+                      width: isBabyAge ? 2 : 1.5,
                     ),
                   ),
-                ],
-              ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(band.emoji, style: const TextStyle(fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text(
+                        band.shortLabel,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -528,24 +612,42 @@ class _CategoryCard extends StatelessWidget {
     final done = guidance.achieved;
     final total = guidance.totalMilestones;
     final pct = guidance.progressPercent;
+    final allDone = total > 0 && done == total;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(AppConstants.paddingM),
         decoration: BoxDecoration(
-          color: _bg,
+          color: allDone ? _accent.withValues(alpha: 0.12) : _bg,
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: _accent.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: allDone ? _accent : _accent.withValues(alpha: 0.2),
+            width: allDone ? 2 : 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(guidance.category.emoji, style: const TextStyle(fontSize: 26)),
+                Text(
+                  allDone ? '🏆' : guidance.category.emoji,
+                  style: const TextStyle(fontSize: 26),
+                ),
                 const Spacer(),
-                Text('$done/$total', style: AppTextStyles.labelSmall.copyWith(color: _accent, fontWeight: FontWeight.w700)),
+                if (allDone)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _accent,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                    ),
+                    child: Text('All done!', style: AppTextStyles.labelSmall.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                  )
+                else
+                  Text('$done/$total', style: AppTextStyles.labelSmall.copyWith(color: _accent, fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: AppConstants.paddingS),
@@ -562,8 +664,11 @@ class _CategoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              guidance.category.description,
-              style: AppTextStyles.labelSmall,
+              allDone ? '✨ Amazing progress!' : guidance.category.description,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: allDone ? _accent : AppColors.textSecondary,
+                fontWeight: allDone ? FontWeight.w700 : FontWeight.w400,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -802,7 +907,7 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
               foregroundColor: Colors.white,
               elevation: 4,
               icon: const Icon(Icons.add_a_photo_rounded),
-              label: Text('Add Memory', style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+              label: Text('Add Photo / Video', style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
             ),
           ),
         ),
@@ -890,12 +995,16 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
             Container(
               width: 80, height: 80,
               decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-              child: const Center(child: Text('📷', style: TextStyle(fontSize: 36))),
+              child: const Center(child: Text('🎬', style: TextStyle(fontSize: 36))),
             ),
             const SizedBox(height: AppConstants.paddingL),
             Text('No memories yet', style: AppTextStyles.headlineSmall),
             const SizedBox(height: 6),
-            Text('Tap Add Memory to capture your first moment', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+            Text(
+              'Tap the button below to capture\nyour first photo or video moment',
+              style: AppTextStyles.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
