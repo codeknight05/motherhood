@@ -68,7 +68,9 @@ class MemoryEntry {
   final String id;
   final String babyId;
   final String? imagePath;   // local file path (before upload)
-  final String? imageUrl;    // remote URL (after upload)
+  final String? imageUrl;    // remote image URL (after upload)
+  final String? videoPath;   // local video file path (before upload)
+  final String? videoUrl;    // remote video URL (after upload)
   final String? caption;
   final DateTime date;
   final MemoryTag tag;
@@ -79,17 +81,30 @@ class MemoryEntry {
     required this.babyId,
     this.imagePath,
     this.imageUrl,
+    this.videoPath,
+    this.videoUrl,
     this.caption,
     required this.date,
     required this.tag,
     this.ageMonths,
   });
 
+  bool get isVideo => videoUrl != null || videoPath != null;
+  bool get hasMedia => imagePath != null || imageUrl != null || videoPath != null || videoUrl != null;
+
+  /// Cloudinary video thumbnail URL — replaces /video/upload/ with /video/upload/so_0/
+  String? get videoThumbnailUrl {
+    if (videoUrl == null) return null;
+    return videoUrl!.replaceFirst('/video/upload/', '/video/upload/so_0,w_400,h_400,c_fill,q_auto,f_jpg/');
+  }
+
   MemoryEntry copyWith({
     String? id,
     String? babyId,
     String? imagePath,
     String? imageUrl,
+    String? videoPath,
+    String? videoUrl,
     String? caption,
     DateTime? date,
     MemoryTag? tag,
@@ -100,6 +115,8 @@ class MemoryEntry {
       babyId: babyId ?? this.babyId,
       imagePath: imagePath ?? this.imagePath,
       imageUrl: imageUrl ?? this.imageUrl,
+      videoPath: videoPath ?? this.videoPath,
+      videoUrl: videoUrl ?? this.videoUrl,
       caption: caption ?? this.caption,
       date: date ?? this.date,
       tag: tag ?? this.tag,

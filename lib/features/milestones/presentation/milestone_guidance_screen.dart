@@ -1,8 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/cloudinary_service.dart';
 import '../../../models/milestone_model.dart';
+import '../../../models/memory_model.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Milestone Guidance Screen — 7 sections for a category × age band
@@ -59,8 +64,34 @@ class _MilestoneGuidanceScreenState extends State<MilestoneGuidanceScreen> {
   }
 
   void _updateStatus(String id, MilestoneStatus status) {
+    final wasAchieved = _guidance.milestones
+        .firstWhere((m) => m.id == id)
+        .status == MilestoneStatus.achieved;
+
     setState(() => _guidance = _guidance.withUpdatedMilestone(id, status));
     widget.onStatusChanged(id, status);
+
+    // Show celebration sheet only when newly marking as achieved
+    if (status == MilestoneStatus.achieved && !wasAchieved) {
+      final milestone = _guidance.milestones.firstWhere((m) => m.id == id);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showCelebration(milestone);
+      });
+    }
+  }
+
+  void _showCelebration(MilestoneItem milestone) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MilestoneCelebrationSheet(
+        milestoneName: milestone.title,
+        babyName: widget.babyName,
+        accentColor: _accent,
+        bgColor: _bg,
+      ),
+    );
   }
 
   @override
@@ -800,6 +831,325 @@ class _ConcernTileState extends State<_ConcernTile> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Milestone Celebration Sheet
+// Shown when a milestone is marked as Achieved — prompts user to capture memory
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MilestoneCelebrationSheet extends StatefulWidget {
+  final String milestoneName;
+  final String babyName;
+  final Color accentColor;
+  final Color bgColor;
+
+  const _MilestoneCelebrationSheet({
+    required this.milestoneName,
+    required this.babyName,
+    required this.accentColor,
+    required this.bgColor,
+  });
+
+  @override
+  State<_MilestoneCelebrationSheet> createState() => _MilestoneCelebrationSheetState();
+}
+
+class _MilestoneCelebrationSheetState extends State<_MilestoneCelebrationSheet>
+    with SingleTickerProviderStateMixin {
+  final _picker = ImagePicker();
+  bool _uploading = false;
+  bool _uploaded = false;
+  late final AnimationController _confettiCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _confettiCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAndUpload(ImageSource source, {bool isVideo = false}) async {
+    try {
+      XFile? file;
+      if (isVideo) {
+        file = await _picker.pickVideo(source: source, maxDuration: const Duration(minutes: 5));
+      } else {
+        file = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1200);
+      }
+      if (file == null || !mounted) return;
+
+      setState(() => _uploading = true);
+
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        setState(() => _uploading = false);
+        return;
+      }
+
+      // Get baby id from Supabase
+      final babies = await Supabase.instance.client
+          .from('babies')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
+      final babyId = (babies as List).isNotEmpty ? babies.first['id'] as String : 'unknown';
+
+      String? imageUrl;
+      String? videoUrl;
+
+      if (isVideo) {
+        videoUrl = await CloudinaryService.uploadMemoryVideo(
+          file: File(file.path), userId: userId, babyId: babyId,
+        );
+      } else {
+        imageUrl = await CloudinaryService.uploadMemoryPhoto(
+          file: File(file.path), userId: userId, babyId: babyId,
+        );
+      }
+
+      // Save to Supabase memories table tagged as milestone
+      await Supabase.instance.client.from('memories').insert({
+        'baby_id': babyId,
+        'user_id': userId,
+        if (imageUrl != null) 'image_url': imageUrl,
+        if (videoUrl != null) 'video_url': videoUrl,
+        'caption': '${widget.babyName} achieved: ${widget.milestoneName} 🎉',
+        'tag': MemoryTag.milestone.dbValue,
+        'memory_date': DateTime.now().toIso8601String().split('T').first,
+      });
+
+      if (mounted) setState(() { _uploading = false; _uploaded = true; });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _uploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Upload failed: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(AppConstants.paddingL),
+      padding: const EdgeInsets.all(AppConstants.paddingXL),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: AppConstants.paddingL),
+
+          // Celebration emoji with scale animation
+          ScaleTransition(
+            scale: CurvedAnimation(parent: _confettiCtrl, curve: Curves.elasticOut),
+            child: const Text('🎉', style: TextStyle(fontSize: 64)),
+          ),
+          const SizedBox(height: AppConstants.paddingM),
+
+          // Title
+          Text(
+            _uploaded ? 'Memory Saved! 💜' : 'Milestone Achieved!',
+            style: AppTextStyles.headlineMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppConstants.paddingS),
+
+          // Subtitle
+          Text(
+            _uploaded
+                ? 'This moment has been added to ${widget.babyName}\'s Memory Diary.'
+                : '${widget.babyName} just achieved\n"${widget.milestoneName}"',
+            style: AppTextStyles.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppConstants.paddingXL),
+
+          if (!_uploaded) ...[
+            // Prompt card
+            Container(
+              padding: const EdgeInsets.all(AppConstants.paddingL),
+              decoration: BoxDecoration(
+                color: widget.bgColor,
+                borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                border: Border.all(color: widget.accentColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Text('📸', style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: AppConstants.paddingM),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Capture this moment!', style: AppTextStyles.titleMedium.copyWith(color: widget.accentColor)),
+                        Text('Add a photo or video to the Memory Diary to remember this milestone forever.', style: AppTextStyles.bodySmall),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppConstants.paddingXL),
+
+            if (_uploading)
+              Column(
+                children: [
+                  const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
+                  const SizedBox(height: AppConstants.paddingM),
+                  Text('Saving to Memory Diary...', style: AppTextStyles.bodySmall),
+                ],
+              )
+            else ...[
+              // Photo buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: _MediaButton(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Take Photo',
+                      color: widget.bgColor,
+                      iconColor: widget.accentColor,
+                      onTap: () => _pickAndUpload(ImageSource.camera),
+                    ),
+                  ),
+                  const SizedBox(width: AppConstants.paddingM),
+                  Expanded(
+                    child: _MediaButton(
+                      icon: Icons.photo_library_rounded,
+                      label: 'From Gallery',
+                      color: AppColors.accentPinkLight,
+                      iconColor: AppColors.accentPink,
+                      onTap: () => _pickAndUpload(ImageSource.gallery),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.paddingM),
+              // Video buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: _MediaButton(
+                      icon: Icons.videocam_rounded,
+                      label: 'Record Video',
+                      color: AppColors.accentOrangeLight,
+                      iconColor: AppColors.accentOrange,
+                      onTap: () => _pickAndUpload(ImageSource.camera, isVideo: true),
+                    ),
+                  ),
+                  const SizedBox(width: AppConstants.paddingM),
+                  Expanded(
+                    child: _MediaButton(
+                      icon: Icons.video_library_rounded,
+                      label: 'Video Gallery',
+                      color: AppColors.accentBlueLight,
+                      iconColor: AppColors.accentBlue,
+                      onTap: () => _pickAndUpload(ImageSource.gallery, isVideo: true),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.paddingL),
+              // Skip
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Maybe later', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+              ),
+            ],
+          ] else ...[
+            // Success state
+            Container(
+              padding: const EdgeInsets.all(AppConstants.paddingL),
+              decoration: BoxDecoration(
+                color: AppColors.accentGreenLight,
+                borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: AppColors.accentGreen, size: 28),
+                  const SizedBox(width: AppConstants.paddingM),
+                  Expanded(
+                    child: Text(
+                      'Find it in the Memory Diary tab 📸',
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentGreen),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppConstants.paddingXL),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                  elevation: 0,
+                ),
+                child: Text('Done', style: AppTextStyles.titleMedium.copyWith(color: Colors.white)),
+              ),
+            ),
+          ],
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color, iconColor;
+  final VoidCallback onTap;
+
+  const _MediaButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: iconColor, size: 28),
+            const SizedBox(height: 6),
+            Text(label, style: AppTextStyles.labelMedium.copyWith(color: iconColor, fontWeight: FontWeight.w700)),
+          ],
+        ),
       ),
     );
   }

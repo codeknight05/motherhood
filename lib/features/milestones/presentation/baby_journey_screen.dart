@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -199,44 +201,87 @@ class _MilestonesTab extends ConsumerStatefulWidget {
   ConsumerState<_MilestonesTab> createState() => _MilestonesTabState();
 }
 
-class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
-  int _selectedBand = 10; // default 6-9 months
+class _MilestonesTabState extends ConsumerState<_MilestonesTab>
+    with WidgetsBindingObserver {
+  int _selectedBand = 10;
+  bool _bandInitialised = false;
+  int _babyBand = 10;
   late final ScrollController _bandScroll;
 
   @override
   void initState() {
     super.initState();
     _bandScroll = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
-  }
-
-  @override
-  void dispose() {
-    _bandScroll.dispose();
-    super.dispose();
-  }
-
-  void _init() {
-    final baby = ref.read(babyProvider).baby;
-    if (baby == null) return;
-    final band = ageBandFromMonths(baby.ageInMonths);
-    setState(() => _selectedBand = band);
-    _loadBand(band);
-    // Scroll the chip into view
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_bandScroll.hasClients) {
-        _bandScroll.animateTo(
-          band * 80.0,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-        );
+      ref.listenManual<BabyState>(babyProvider, (prev, next) {
+        if (!_bandInitialised && next.baby != null) {
+          setState(() => _initFromBaby(next.baby));
+        }
+      });
+      final baby = ref.read(babyProvider).baby;
+      if (!_bandInitialised && baby != null) {
+        setState(() => _initFromBaby(baby));
       }
     });
   }
 
-  void _loadBand(int band) {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bandScroll.dispose();
+    super.dispose();
+  }
+
+  // Item 4 — recalculate band when app resumes (handles day-change across sessions)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final baby = ref.read(babyProvider).baby;
+      if (baby != null) {
+        final newBand = _bandForBaby(baby);
+        if (newBand != _babyBand) {
+          // Baby has moved to a new age band since last open
+          setState(() {
+            _babyBand = newBand;
+            _bandInitialised = false;
+          });
+          _initFromBaby(baby);
+        }
+      }
+    }
+  }
+
+  void _initFromBaby(baby) {
+    if (_bandInitialised || baby == null) return;
+    _bandInitialised = true;
+    final band = _bandForBaby(baby);
+    _selectedBand = band;
+    _babyBand = band;
+    _loadBand(band);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBand(band));
+  }
+
+  int _bandForBaby(baby) {
+    if (baby.birthDate == null) return 10;
+    final days = DateTime.now().difference(baby.birthDate!).inDays;
+    return ageBandFromDays(days);
+  }
+
+  void _scrollToBand(int band) {
+    if (!_bandScroll.hasClients) return;
+    _bandScroll.animateTo(
+      band * 80.0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _loadBand(int band, {bool forceRefresh = false}) {
     final baby = ref.read(babyProvider).baby;
     if (baby == null) return;
+    final current = ref.read(milestonesProvider);
+    if (!forceRefresh && current.guidance.isNotEmpty && current.selectedBandIndex == band) return;
     ref.read(milestonesProvider.notifier).loadMilestones(
       baby.id, baby.ageInMonths, bandIndex: band,
     );
@@ -245,6 +290,17 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
   void _selectBand(int band) {
     setState(() => _selectedBand = band);
     _loadBand(band);
+    _scrollToBand(band);
+  }
+
+  // Item 1 — pull-to-refresh
+  Future<void> _onRefresh() async {
+    _loadBand(_selectedBand, forceRefresh: true);
+    // Wait for loading to complete
+    await Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return ref.read(milestonesProvider).isLoading;
+    }).timeout(const Duration(seconds: 10), onTimeout: () {});
   }
 
   @override
@@ -260,7 +316,10 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
     final totalNotStarted = msState.totalNotStarted;
     final percent        = msState.overallPercent;
 
-    return ListView(
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppColors.primary,
+      child: ListView(
       padding: const EdgeInsets.fromLTRB(0, AppConstants.paddingM, 0, 100),
       children: [
         _buildBandSelector(),
@@ -289,12 +348,13 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
           ),
         ],
       ],
+    ),
     );
   }
 
   Widget _buildBandSelector() {
     return SizedBox(
-      height: 72,
+      height: 84,
       child: ListView.separated(
         controller: _bandScroll,
         scrollDirection: Axis.horizontal,
@@ -304,33 +364,59 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab> {
         itemBuilder: (_, i) {
           final band = ageBands[i];
           final isSelected = _selectedBand == i;
+          final isBabyAge = _babyBand == i;
           return GestureDetector(
             onTap: () => _selectBand(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.divider,
-                  width: 1.5,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Item 6 — "your baby" label above the chip
+                SizedBox(
+                  height: 14,
+                  child: isBabyAge
+                      ? Text(
+                          '👶 Now',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 9,
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(band.emoji, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 3),
-                  Text(
-                    band.shortLabel,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 2),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary : AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    border: Border.all(
+                      color: isBabyAge && !isSelected
+                          ? AppColors.primary
+                          : isSelected
+                              ? AppColors.primary
+                              : AppColors.divider,
+                      width: isBabyAge ? 2 : 1.5,
                     ),
                   ),
-                ],
-              ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(band.emoji, style: const TextStyle(fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text(
+                        band.shortLabel,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -526,24 +612,42 @@ class _CategoryCard extends StatelessWidget {
     final done = guidance.achieved;
     final total = guidance.totalMilestones;
     final pct = guidance.progressPercent;
+    final allDone = total > 0 && done == total;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(AppConstants.paddingM),
         decoration: BoxDecoration(
-          color: _bg,
+          color: allDone ? _accent.withValues(alpha: 0.12) : _bg,
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: _accent.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: allDone ? _accent : _accent.withValues(alpha: 0.2),
+            width: allDone ? 2 : 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(guidance.category.emoji, style: const TextStyle(fontSize: 26)),
+                Text(
+                  allDone ? '🏆' : guidance.category.emoji,
+                  style: const TextStyle(fontSize: 26),
+                ),
                 const Spacer(),
-                Text('$done/$total', style: AppTextStyles.labelSmall.copyWith(color: _accent, fontWeight: FontWeight.w700)),
+                if (allDone)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _accent,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                    ),
+                    child: Text('All done!', style: AppTextStyles.labelSmall.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                  )
+                else
+                  Text('$done/$total', style: AppTextStyles.labelSmall.copyWith(color: _accent, fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: AppConstants.paddingS),
@@ -560,8 +664,11 @@ class _CategoryCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              guidance.category.description,
-              style: AppTextStyles.labelSmall,
+              allDone ? '✨ Amazing progress!' : guidance.category.description,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: allDone ? _accent : AppColors.textSecondary,
+                fontWeight: allDone ? FontWeight.w700 : FontWeight.w400,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -626,6 +733,7 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
         id: m['id'] as String,
         babyId: m['baby_id'] as String,
         imageUrl: m['image_url'] as String?,
+        videoUrl: m['video_url'] as String?,
         caption: m['caption'] as String?,
         date: DateTime.parse(m['memory_date'] as String),
         tag: memoryTagFromDb(m['tag'] as String? ?? 'everyday'),
@@ -658,7 +766,24 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
     try {
       final file = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1200);
       if (file == null || !mounted) return;
-      _showAddSheet(file.path);
+      _showAddSheet(file.path, isVideo: false);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not access ${source == ImageSource.camera ? "camera" : "gallery"}. Check permissions.'),
+        backgroundColor: AppColors.error,
+      ));
+    }
+  }
+
+  Future<void> _pickVideo(ImageSource source) async {
+    try {
+      final file = await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(minutes: 5),
+      );
+      if (file == null || !mounted) return;
+      _showAddSheet(file.path, isVideo: true);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -673,20 +798,23 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _SourcePickerSheet(
-        onCamera: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
-        onGallery: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+        onCameraPhoto:  () { Navigator.pop(context); _pickImage(ImageSource.camera); },
+        onGalleryPhoto: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+        onCameraVideo:  () { Navigator.pop(context); _pickVideo(ImageSource.camera); },
+        onGalleryVideo: () { Navigator.pop(context); _pickVideo(ImageSource.gallery); },
       ),
     );
   }
 
-  void _showAddSheet(String path) {
+  void _showAddSheet(String path, {required bool isVideo}) {
     final baby = ref.read(babyProvider).baby ?? sampleBaby;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddMemorySheet(
-        imagePath: path,
+        mediaPath: path,
+        isVideo: isVideo,
         baby: baby,
         onSave: (e) => setState(() => _memories.insert(0, e)),
       ),
@@ -718,6 +846,9 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       await Supabase.instance.client.from('memories').delete().eq('id', memory.id);
       if (memory.imageUrl != null) {
         await CloudinaryService.deletePhoto(memory.imageUrl!);
+      }
+      if (memory.videoUrl != null) {
+        await CloudinaryService.deletePhoto(memory.videoUrl!);
       }
       if (mounted) setState(() => _memories.removeWhere((m) => m.id == memory.id));
     } catch (e) {
@@ -776,7 +907,7 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
               foregroundColor: Colors.white,
               elevation: 4,
               icon: const Icon(Icons.add_a_photo_rounded),
-              label: Text('Add Memory', style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+              label: Text('Add Photo / Video', style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
             ),
           ),
         ),
@@ -825,7 +956,7 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
         const SizedBox(width: 8),
         Text(month, style: AppTextStyles.headlineSmall),
         const SizedBox(width: 8),
-        Text('$count photos', style: AppTextStyles.bodySmall),
+        Text('$count ${count == 1 ? "memory" : "memories"}', style: AppTextStyles.bodySmall),
       ],
     );
   }
@@ -864,12 +995,16 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
             Container(
               width: 80, height: 80,
               decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-              child: const Center(child: Text('📷', style: TextStyle(fontSize: 36))),
+              child: const Center(child: Text('🎬', style: TextStyle(fontSize: 36))),
             ),
             const SizedBox(height: AppConstants.paddingL),
             Text('No memories yet', style: AppTextStyles.headlineSmall),
             const SizedBox(height: 6),
-            Text('Tap Add Memory to capture your first moment', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+            Text(
+              'Tap the button below to capture\nyour first photo or video moment',
+              style: AppTextStyles.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -890,14 +1025,9 @@ class _MemoryGridTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          memory.imagePath != null
-              ? Image.file(File(memory.imagePath!), fit: BoxFit.cover)
-              : memory.imageUrl != null
-                  ? Image.network(memory.imageUrl!, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: AppColors.primaryLight,
-                          child: const Center(child: Icon(Icons.image_rounded, color: AppColors.primaryMid, size: 28))))
-                  : Container(color: AppColors.primaryLight,
-                      child: const Center(child: Icon(Icons.image_rounded, color: AppColors.primaryMid, size: 28))),
+          // Thumbnail
+          _buildThumbnail(),
+          // Bottom gradient
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: Container(
@@ -910,6 +1040,7 @@ class _MemoryGridTile extends StatelessWidget {
               ),
             ),
           ),
+          // Tag emoji badge
           Positioned(
             top: 5, left: 5,
             child: Container(
@@ -918,10 +1049,69 @@ class _MemoryGridTile extends StatelessWidget {
               child: Text(memory.tag.emoji, style: const TextStyle(fontSize: 10)),
             ),
           ),
+          // Video play icon
+          if (memory.isVideo)
+            Center(
+              child: Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
+                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+              ),
+            ),
+          // Video badge
+          if (memory.isVideo)
+            Positioned(
+              bottom: 5, right: 5,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.videocam_rounded, color: Colors.white, size: 10),
+                    SizedBox(width: 2),
+                    Text('VIDEO', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+
+  Widget _buildThumbnail() {
+    if (memory.isVideo) {
+      // Use Cloudinary-generated video thumbnail
+      final thumb = memory.videoThumbnailUrl;
+      if (thumb != null) {
+        return Image.network(thumb, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _videoPlaceholder());
+      }
+      if (memory.videoPath != null) {
+        // Local video — show placeholder (thumbnail generation needs video_thumbnail package)
+        return _videoPlaceholder();
+      }
+      return _videoPlaceholder();
+    }
+    // Image
+    if (memory.imagePath != null) return Image.file(File(memory.imagePath!), fit: BoxFit.cover);
+    if (memory.imageUrl != null) {
+      return Image.network(memory.imageUrl!, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _imagePlaceholder());
+    }
+    return _imagePlaceholder();
+  }
+
+  Widget _videoPlaceholder() => Container(
+    color: const Color(0xFF1A1A2E),
+    child: const Center(child: Icon(Icons.videocam_rounded, color: Colors.white54, size: 28)),
+  );
+
+  Widget _imagePlaceholder() => Container(
+    color: AppColors.primaryLight,
+    child: const Center(child: Icon(Icons.image_rounded, color: AppColors.primaryMid, size: 28)),
+  );
 }
 
 class _StatCard extends StatelessWidget {
@@ -982,8 +1172,13 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _SourcePickerSheet extends StatelessWidget {
-  final VoidCallback onCamera, onGallery;
-  const _SourcePickerSheet({required this.onCamera, required this.onGallery});
+  final VoidCallback onCameraPhoto, onGalleryPhoto, onCameraVideo, onGalleryVideo;
+  const _SourcePickerSheet({
+    required this.onCameraPhoto,
+    required this.onGalleryPhoto,
+    required this.onCameraVideo,
+    required this.onGalleryVideo,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -993,18 +1188,33 @@ class _SourcePickerSheet extends StatelessWidget {
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppConstants.radiusXXL)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: AppConstants.paddingL),
           Text('Add a Memory', style: AppTextStyles.headlineMedium),
-          const SizedBox(height: 6),
-          Text('Choose how to add your photo', style: AppTextStyles.bodyMedium),
+          const SizedBox(height: 4),
+          Text('Choose photo or video', style: AppTextStyles.bodyMedium),
           const SizedBox(height: AppConstants.paddingXL),
+          // Photo row
+          Text('📷  Photo', style: AppTextStyles.titleMedium),
+          const SizedBox(height: AppConstants.paddingS),
           Row(
             children: [
-              Expanded(child: _SourceOption(icon: Icons.camera_alt_rounded, label: 'Camera', color: AppColors.primaryLight, iconColor: AppColors.primary, onTap: onCamera)),
+              Expanded(child: _SourceOption(icon: Icons.camera_alt_rounded, label: 'Camera', color: AppColors.primaryLight, iconColor: AppColors.primary, onTap: onCameraPhoto)),
               const SizedBox(width: AppConstants.paddingM),
-              Expanded(child: _SourceOption(icon: Icons.photo_library_rounded, label: 'Gallery', color: AppColors.accentPinkLight, iconColor: AppColors.accentPink, onTap: onGallery)),
+              Expanded(child: _SourceOption(icon: Icons.photo_library_rounded, label: 'Gallery', color: AppColors.accentPinkLight, iconColor: AppColors.accentPink, onTap: onGalleryPhoto)),
+            ],
+          ),
+          const SizedBox(height: AppConstants.paddingL),
+          // Video row
+          Text('🎥  Video', style: AppTextStyles.titleMedium),
+          const SizedBox(height: AppConstants.paddingS),
+          Row(
+            children: [
+              Expanded(child: _SourceOption(icon: Icons.videocam_rounded, label: 'Camera', color: AppColors.accentOrangeLight, iconColor: AppColors.accentOrange, onTap: onCameraVideo)),
+              const SizedBox(width: AppConstants.paddingM),
+              Expanded(child: _SourceOption(icon: Icons.video_library_rounded, label: 'Gallery', color: AppColors.accentBlueLight, iconColor: AppColors.accentBlue, onTap: onGalleryVideo)),
             ],
           ),
           const SizedBox(height: AppConstants.paddingM),
@@ -1042,10 +1252,11 @@ class _SourceOption extends StatelessWidget {
 }
 
 class _AddMemorySheet extends StatefulWidget {
-  final String imagePath;
+  final String mediaPath;
+  final bool isVideo;
   final BabyModel baby;
   final void Function(MemoryEntry) onSave;
-  const _AddMemorySheet({required this.imagePath, required this.baby, required this.onSave});
+  const _AddMemorySheet({required this.mediaPath, required this.isVideo, required this.baby, required this.onSave});
 
   @override
   State<_AddMemorySheet> createState() => _AddMemorySheetState();
@@ -1055,46 +1266,69 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
   final _captionController = TextEditingController();
   MemoryTag _selectedTag = MemoryTag.everyday;
   bool _saving = false;
+  VideoPlayerController? _previewController;
 
   @override
-  void dispose() { _captionController.dispose(); super.dispose(); }
+  void initState() {
+    super.initState();
+    if (widget.isVideo) {
+      _previewController = VideoPlayerController.file(File(widget.mediaPath))
+        ..initialize().then((_) {
+          if (mounted) setState(() {});
+        });
+    }
+  }
+
+  @override
+  void dispose() {
+    _captionController.dispose();
+    _previewController?.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
+      final userId = Supabase.instance.client.auth.currentUser?.id ?? 'unknown';
       String? imageUrl;
+      String? videoUrl;
 
-      // Upload to Cloudinary if we have a local file
-      if (widget.imagePath.isNotEmpty) {
+      if (widget.isVideo) {
+        videoUrl = await CloudinaryService.uploadMemoryVideo(
+          file: File(widget.mediaPath),
+          userId: userId,
+          babyId: widget.baby.id,
+        );
+      } else {
         imageUrl = await CloudinaryService.uploadMemoryPhoto(
-          file: File(widget.imagePath),
-          userId: Supabase.instance.client.auth.currentUser?.id ?? 'unknown',
+          file: File(widget.mediaPath),
+          userId: userId,
           babyId: widget.baby.id,
         );
       }
 
-      // Save to Supabase memories table — use .select().single() to get the real UUID back
-      String savedId = DateTime.now().millisecondsSinceEpoch.toString(); // fallback
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId != null && widget.baby.id.isNotEmpty) {
+      String savedId = DateTime.now().millisecondsSinceEpoch.toString();
+      if (widget.baby.id.isNotEmpty) {
         final inserted = await Supabase.instance.client.from('memories').insert({
           'baby_id': widget.baby.id,
           'user_id': userId,
-          'image_url': imageUrl,
+          if (imageUrl != null) 'image_url': imageUrl,
+          if (videoUrl != null) 'video_url': videoUrl,
           'caption': _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
           'tag': _selectedTag.dbValue,
           'age_months': widget.baby.ageInMonths,
           'memory_date': DateTime.now().toIso8601String().split('T').first,
         }).select().single();
-        savedId = inserted['id'] as String; // real UUID from Postgres
+        savedId = inserted['id'] as String;
       }
 
-      // Update local state with the real UUID so delete works immediately
       widget.onSave(MemoryEntry(
         id: savedId,
         babyId: widget.baby.id,
-        imagePath: imageUrl == null ? widget.imagePath : null,
+        imagePath: (!widget.isVideo && imageUrl == null) ? widget.mediaPath : null,
         imageUrl: imageUrl,
+        videoPath: (widget.isVideo && videoUrl == null) ? widget.mediaPath : null,
+        videoUrl: videoUrl,
         caption: _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
         date: DateTime.now(),
         tag: _selectedTag,
@@ -1105,12 +1339,10 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
     } catch (e) {
       setState(() => _saving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save memory: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to save memory: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ));
       }
     }
   }
@@ -1134,9 +1366,12 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
             const SizedBox(height: AppConstants.paddingL),
             Text('Save Memory', style: AppTextStyles.headlineMedium),
             const SizedBox(height: AppConstants.paddingXL),
+            // Preview
             ClipRRect(
               borderRadius: BorderRadius.circular(AppConstants.radiusL),
-              child: Image.file(File(widget.imagePath), height: 200, width: double.infinity, fit: BoxFit.cover),
+              child: widget.isVideo
+                  ? _buildVideoPreview()
+                  : Image.file(File(widget.mediaPath), height: 200, width: double.infinity, fit: BoxFit.cover),
             ),
             const SizedBox(height: AppConstants.paddingXL),
             Text('Caption', style: AppTextStyles.titleMedium),
@@ -1198,11 +1433,40 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
                 ),
                 child: _saving
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text('Save Memory 💾', style: AppTextStyles.titleMedium.copyWith(color: Colors.white)),
+                    : Text(widget.isVideo ? 'Save Video 🎥' : 'Save Photo �',
+                        style: AppTextStyles.titleMedium.copyWith(color: Colors.white)),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildVideoPreview() {
+    final ctrl = _previewController;
+    if (ctrl == null || !ctrl.value.isInitialized) {
+      return Container(
+        height: 200, width: double.infinity,
+        color: const Color(0xFF1A1A2E),
+        child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+      );
+    }
+    return SizedBox(
+      height: 200, width: double.infinity,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AspectRatio(aspectRatio: ctrl.value.aspectRatio, child: VideoPlayer(ctrl)),
+          GestureDetector(
+            onTap: () => setState(() => ctrl.value.isPlaying ? ctrl.pause() : ctrl.play()),
+            child: Container(
+              width: 48, height: 48,
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
+              child: Icon(ctrl.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 28),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1218,6 +1482,46 @@ class _MemoryDetailScreen extends StatefulWidget {
 
 class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
   bool _deleting = false;
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.memory.isVideo) _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    final url = widget.memory.videoUrl;
+    final path = widget.memory.videoPath;
+    if (url != null) {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+    } else if (path != null) {
+      _videoController = VideoPlayerController.file(File(path));
+    } else {return;}
+
+    await _videoController!.initialize();
+    _chewieController = ChewieController(
+      videoPlayerController: _videoController!,
+      autoPlay: false,
+      looping: false,
+      allowFullScreen: true,
+      materialProgressColors: ChewieProgressColors(
+        playedColor: AppColors.primary,
+        handleColor: AppColors.primary,
+        backgroundColor: AppColors.divider,
+        bufferedColor: AppColors.primaryMid,
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _videoController?.dispose();
+    super.dispose();
+  }
 
   String _formatDate(DateTime d) {
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1229,17 +1533,11 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusL)),
-        title: const Text('Delete Memory?'),
-        content: const Text('This will permanently delete this photo and remove it from your diary. This cannot be undone.'),
+        title: Text('Delete ${widget.memory.isVideo ? "Video" : "Photo"}?'),
+        content: Text('This will permanently delete this ${widget.memory.isVideo ? "video" : "photo"} and remove it from your diary. This cannot be undone.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: AppTextStyles.titleMedium.copyWith(color: AppColors.error)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: AppTextStyles.titleMedium.copyWith(color: AppColors.error))),
         ],
       ),
     );
@@ -1249,34 +1547,15 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
 
   Future<void> _deleteMemory() async {
     setState(() => _deleting = true);
-    debugPrint('[Delete] Attempting to delete memory id=${widget.memory.id}, imageUrl=${widget.memory.imageUrl}');
     try {
-      // 1. Delete Supabase row
-      final result = await Supabase.instance.client
-          .from('memories')
-          .delete()
-          .eq('id', widget.memory.id)
-          .select();
-      debugPrint('[Delete] Supabase delete result: $result');
-
-      // 2. Attempt Cloudinary deletion
-      if (widget.memory.imageUrl != null) {
-        final publicId = CloudinaryService.extractPublicId(widget.memory.imageUrl!);
-        debugPrint('[Delete] Cloudinary public_id: $publicId');
-        await CloudinaryService.deletePhoto(widget.memory.imageUrl!);
-      }
-
-      if (mounted) {
-        Navigator.pop(context, widget.memory.id);
-      }
+      await Supabase.instance.client.from('memories').delete().eq('id', widget.memory.id).select();
+      if (widget.memory.imageUrl != null) await CloudinaryService.deletePhoto(widget.memory.imageUrl!);
+      if (widget.memory.videoUrl != null) await CloudinaryService.deletePhoto(widget.memory.videoUrl!);
+      if (mounted) Navigator.pop(context, widget.memory.id);
     } catch (e) {
-      debugPrint('[Delete] ERROR: $e');
       if (mounted) {
         setState(() => _deleting = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to delete: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete: $e'), backgroundColor: AppColors.error));
       }
     }
   }
@@ -1287,15 +1566,8 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: InteractiveViewer(
-              child: widget.memory.imagePath != null
-                  ? Image.file(File(widget.memory.imagePath!), fit: BoxFit.contain)
-                  : widget.memory.imageUrl != null
-                      ? Image.network(widget.memory.imageUrl!, fit: BoxFit.contain)
-                      : const Center(child: Icon(Icons.image_rounded, color: Colors.white54, size: 64)),
-            ),
-          ),
+          // Media
+          Positioned.fill(child: _buildMedia()),
           // Top bar
           Positioned(
             top: 0, left: 0, right: 0,
@@ -1305,24 +1577,15 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 16),
-                      ),
+                      icon: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle), child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 16)),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle),
-                        child: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
-                      ),
+                      icon: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle), child: const Icon(Icons.share_rounded, color: Colors.white, size: 18)),
                       onPressed: () {},
                     ),
                     const SizedBox(width: 8),
-                    // Delete button
                     IconButton(
                       icon: Container(
                         width: 36, height: 36,
@@ -1338,65 +1601,71 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
               ),
             ),
           ),
-          // Bottom info bar
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(AppConstants.paddingXL),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                  colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+          // Bottom info bar — only show when not playing video
+          if (!widget.memory.isVideo || _chewieController == null)
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(AppConstants.paddingXL),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent]),
                 ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(AppConstants.radiusFull)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
                               Text(widget.memory.tag.emoji, style: const TextStyle(fontSize: 12)),
                               const SizedBox(width: 4),
                               Text(widget.memory.tag.label, style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
-                            ],
+                            ]),
                           ),
-                        ),
-                        if (widget.memory.ageMonths != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                          if (widget.memory.ageMonths != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(AppConstants.radiusFull)),
+                              child: Text('${widget.memory.ageMonths} months old', style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
                             ),
-                            child: Text('${widget.memory.ageMonths} months old', style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
-                          ),
+                          ],
                         ],
+                      ),
+                      if (widget.memory.caption != null) ...[
+                        const SizedBox(height: 10),
+                        Text(widget.memory.caption!, style: AppTextStyles.bodyLarge.copyWith(color: Colors.white)),
                       ],
-                    ),
-                    if (widget.memory.caption != null) ...[
-                      const SizedBox(height: 10),
-                      Text(widget.memory.caption!, style: AppTextStyles.bodyLarge.copyWith(color: Colors.white)),
+                      const SizedBox(height: 6),
+                      Text(_formatDate(widget.memory.date), style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
                     ],
-                    const SizedBox(height: 6),
-                    Text(_formatDate(widget.memory.date), style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMedia() {
+    if (widget.memory.isVideo) {
+      if (_chewieController != null) {
+        return Center(child: Chewie(controller: _chewieController!));
+      }
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+    // Photo
+    return InteractiveViewer(
+      child: widget.memory.imagePath != null
+          ? Image.file(File(widget.memory.imagePath!), fit: BoxFit.contain)
+          : widget.memory.imageUrl != null
+              ? Image.network(widget.memory.imageUrl!, fit: BoxFit.contain)
+              : const Center(child: Icon(Icons.image_rounded, color: Colors.white54, size: 64)),
     );
   }
 }
