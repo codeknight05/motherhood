@@ -13,7 +13,7 @@ CategoryGuidance enrichGuidance(
   Map<String, (MilestoneStatus, String?)> supabaseStatuses,
 ) {
   final updated = guidance.milestones.map((m) {
-    final key = m.title.toLowerCase();
+    final key = '${m.category.name.toLowerCase()}:${m.title.toLowerCase()}';
     if (supabaseStatuses.containsKey(key)) {
       final (status, date) = supabaseStatuses[key]!;
       return m.copyWith(status: status, achievedDate: date);

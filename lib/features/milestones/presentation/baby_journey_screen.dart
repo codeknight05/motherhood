@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -58,10 +58,7 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen>
         ],
         body: TabBarView(
           controller: _tabController,
-          children: const [
-            _MilestonesTab(),
-            _MemoryDiaryTab(),
-          ],
+          children: const [_MilestonesTab(), _MemoryDiaryTab()],
         ),
       ),
       floatingActionButton: null,
@@ -107,7 +104,9 @@ class _BabyHeaderCard extends StatelessWidget {
               Text(baby.name, style: AppTextStyles.headlineSmall),
               Text(
                 baby.ageString,
-                style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.primary,
+                ),
               ),
             ],
           ),
@@ -124,9 +123,18 @@ class _BabyHeaderCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.primary),
+                const Icon(
+                  Icons.swap_horiz_rounded,
+                  size: 14,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 4),
-                Text('Change', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
+                Text(
+                  'Change',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -146,7 +154,11 @@ class _JourneyTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(
-          AppConstants.paddingL, 0, AppConstants.paddingL, AppConstants.paddingM),
+        AppConstants.paddingL,
+        0,
+        AppConstants.paddingL,
+        AppConstants.paddingM,
+      ),
       height: 44,
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
@@ -161,7 +173,9 @@ class _JourneyTabBar extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelStyle: AppTextStyles.titleMedium.copyWith(color: Colors.white),
-        unselectedLabelStyle: AppTextStyles.titleMedium.copyWith(color: AppColors.primary),
+        unselectedLabelStyle: AppTextStyles.titleMedium.copyWith(
+          color: AppColors.primary,
+        ),
         labelColor: Colors.white,
         unselectedLabelColor: AppColors.primary,
         tabs: const [
@@ -281,10 +295,14 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
     final baby = ref.read(babyProvider).baby;
     if (baby == null) return;
     final current = ref.read(milestonesProvider);
-    if (!forceRefresh && current.guidance.isNotEmpty && current.selectedBandIndex == band) return;
-    ref.read(milestonesProvider.notifier).loadMilestones(
-      baby.id, baby.ageInMonths, bandIndex: band,
-    );
+    if (!forceRefresh &&
+        current.guidance.isNotEmpty &&
+        current.selectedBandIndex == band) {
+      return;
+    }
+    ref
+        .read(milestonesProvider.notifier)
+        .loadMilestones(baby.id, baby.ageInMonths, bandIndex: band);
   }
 
   void _selectBand(int band) {
@@ -310,45 +328,62 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
         ? msState.guidance
         : guidanceForAgeBand(_selectedBand);
 
-    final totalAchieved  = msState.totalAchieved;
-    final totalItems     = msState.totalItems;
+    final totalAchieved = msState.totalAchieved;
+    final totalItems = msState.totalItems;
     final totalInProgress = msState.totalInProgress;
     final totalNotStarted = msState.totalNotStarted;
-    final percent        = msState.overallPercent;
+    final percent = msState.overallPercent;
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
       color: AppColors.primary,
       child: ListView(
-      padding: const EdgeInsets.fromLTRB(0, AppConstants.paddingM, 0, 100),
-      children: [
-        _buildBandSelector(),
-        const SizedBox(height: AppConstants.paddingM),
-        _buildBandBanner(),
-        const SizedBox(height: AppConstants.paddingM),
-        if (msState.isLoading)
-          const Center(child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
-          ))
-        else ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
-            child: _buildOverallProgress(totalAchieved, totalItems, totalInProgress, totalNotStarted, percent),
-          ),
-          const SizedBox(height: AppConstants.paddingXL),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
-            child: _buildCategoryGrid(guidance),
-          ),
+        padding: const EdgeInsets.fromLTRB(0, AppConstants.paddingM, 0, 100),
+        children: [
+          _buildBandSelector(),
           const SizedBox(height: AppConstants.paddingM),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
-            child: _buildEncouragementCard(),
-          ),
+          _buildBandBanner(),
+          const SizedBox(height: AppConstants.paddingM),
+          if (msState.isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
+                  strokeWidth: 2.5,
+                ),
+              ),
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.paddingL,
+              ),
+              child: _buildOverallProgress(
+                totalAchieved,
+                totalItems,
+                totalInProgress,
+                totalNotStarted,
+                percent,
+              ),
+            ),
+            const SizedBox(height: AppConstants.paddingXL),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.paddingL,
+              ),
+              child: _buildCategoryGrid(guidance),
+            ),
+            const SizedBox(height: AppConstants.paddingM),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.paddingL,
+              ),
+              child: _buildEncouragementCard(),
+            ),
+          ],
         ],
-      ],
-    ),
+      ),
     );
   }
 
@@ -360,7 +395,8 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
         itemCount: ageBands.length,
-        separatorBuilder: (_, __) => const SizedBox(width: AppConstants.paddingS),
+        separatorBuilder: (_, __) =>
+            const SizedBox(width: AppConstants.paddingS),
         itemBuilder: (_, i) {
           final band = ageBands[i];
           final isSelected = _selectedBand == i;
@@ -388,7 +424,10 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
                 const SizedBox(height: 2),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primary : AppColors.surface,
                     borderRadius: BorderRadius.circular(AppConstants.radiusM),
@@ -396,8 +435,8 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
                       color: isBabyAge && !isSelected
                           ? AppColors.primary
                           : isSelected
-                              ? AppColors.primary
-                              : AppColors.divider,
+                          ? AppColors.primary
+                          : AppColors.divider,
                       width: isBabyAge ? 2 : 1.5,
                     ),
                   ),
@@ -409,8 +448,12 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
                       Text(
                         band.shortLabel,
                         style: AppTextStyles.labelSmall.copyWith(
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.textSecondary,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                     ],
@@ -443,9 +486,17 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(band.label, style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
+                  Text(
+                    band.label,
+                    style: AppTextStyles.headlineMedium.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Tap a category to see milestones, activities and guidance.', style: AppTextStyles.bodySmall),
+                  Text(
+                    'Tap a category to see milestones, activities and guidance.',
+                    style: AppTextStyles.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -457,7 +508,13 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
     );
   }
 
-  Widget _buildOverallProgress(int achieved, int total, int inProgress, int notStarted, double percent) {
+  Widget _buildOverallProgress(
+    int achieved,
+    int total,
+    int inProgress,
+    int notStarted,
+    double percent,
+  ) {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,23 +533,39 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
               value: percent,
               minHeight: 10,
               backgroundColor: AppColors.primaryLight,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
           const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerRight,
-            child: Text('${(percent * 100).toInt()}%',
-              style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+            child: Text(
+              '${(percent * 100).toInt()}%',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           const SizedBox(height: AppConstants.paddingM),
           Wrap(
             spacing: AppConstants.paddingL,
             runSpacing: 4,
             children: [
-              _ProgressLegend(color: AppColors.accentGreen, label: 'Done ($achieved)'),
-              _ProgressLegend(color: AppColors.warning, label: 'In Progress ($inProgress)'),
-              _ProgressLegend(color: AppColors.textHint, label: 'Not Started ($notStarted)'),
+              _ProgressLegend(
+                color: AppColors.accentGreen,
+                label: 'Done ($achieved)',
+              ),
+              _ProgressLegend(
+                color: AppColors.warning,
+                label: 'In Progress ($inProgress)',
+              ),
+              _ProgressLegend(
+                color: AppColors.textHint,
+                label: 'Not Started ($notStarted)',
+              ),
             ],
           ),
         ],
@@ -536,9 +609,15 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-            child: const Center(child: Text('⭐', style: TextStyle(fontSize: 22))),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Text('⭐', style: TextStyle(fontSize: 22)),
+            ),
           ),
           const SizedBox(width: AppConstants.paddingM),
           Expanded(
@@ -546,11 +625,16 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Great job! 🎉', style: AppTextStyles.titleLarge.copyWith(color: Colors.white)),
+                Text(
+                  'Great job! 🎉',
+                  style: AppTextStyles.titleLarge.copyWith(color: Colors.white),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   '${baby.name} is growing beautifully. Keep nurturing and engaging every day.',
-                  style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
                 ),
               ],
             ),
@@ -570,8 +654,9 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
           guidance: guidance,
           babyName: baby.name,
           babyAge: baby.ageString,
-          onStatusChanged: (id, status) =>
-              ref.read(milestonesProvider.notifier).updateMilestoneStatus(id, status),
+          onStatusChanged: (id, status) => ref
+              .read(milestonesProvider.notifier)
+              .updateMilestoneStatus(baby.id, id, status),
         ),
       ),
     );
@@ -587,23 +672,35 @@ class _CategoryCard extends StatelessWidget {
 
   Color get _bg {
     switch (guidance.category) {
-      case MilestoneCategory.grossMotor:   return AppColors.accentGreenLight;
-      case MilestoneCategory.fineMotor:    return AppColors.accentOrangeLight;
-      case MilestoneCategory.language:     return AppColors.primaryLight;
-      case MilestoneCategory.cognitive:    return AppColors.accentBlueLight;
-      case MilestoneCategory.social:       return AppColors.accentPinkLight;
-      case MilestoneCategory.feedingSleep: return const Color(0xFFFFF8E1);
+      case MilestoneCategory.grossMotor:
+        return AppColors.accentGreenLight;
+      case MilestoneCategory.fineMotor:
+        return AppColors.accentOrangeLight;
+      case MilestoneCategory.language:
+        return AppColors.primaryLight;
+      case MilestoneCategory.cognitive:
+        return AppColors.accentBlueLight;
+      case MilestoneCategory.social:
+        return AppColors.accentPinkLight;
+      case MilestoneCategory.feedingSleep:
+        return const Color(0xFFFFF8E1);
     }
   }
 
   Color get _accent {
     switch (guidance.category) {
-      case MilestoneCategory.grossMotor:   return AppColors.accentGreen;
-      case MilestoneCategory.fineMotor:    return AppColors.accentOrange;
-      case MilestoneCategory.language:     return AppColors.primary;
-      case MilestoneCategory.cognitive:    return AppColors.accentBlue;
-      case MilestoneCategory.social:       return AppColors.accentPink;
-      case MilestoneCategory.feedingSleep: return const Color(0xFFFF8F00);
+      case MilestoneCategory.grossMotor:
+        return AppColors.accentGreen;
+      case MilestoneCategory.fineMotor:
+        return AppColors.accentOrange;
+      case MilestoneCategory.language:
+        return AppColors.primary;
+      case MilestoneCategory.cognitive:
+        return AppColors.accentBlue;
+      case MilestoneCategory.social:
+        return AppColors.accentPink;
+      case MilestoneCategory.feedingSleep:
+        return const Color(0xFFFF8F00);
     }
   }
 
@@ -639,15 +736,32 @@ class _CategoryCard extends StatelessWidget {
                 const Spacer(),
                 if (allDone)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: _accent,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.radiusFull,
+                      ),
                     ),
-                    child: Text('All done!', style: AppTextStyles.labelSmall.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                    child: Text(
+                      'All done!',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   )
                 else
-                  Text('$done/$total', style: AppTextStyles.labelSmall.copyWith(color: _accent, fontWeight: FontWeight.w700)),
+                  Text(
+                    '$done/$total',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: _accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: AppConstants.paddingS),
@@ -689,7 +803,11 @@ class _ProgressLegend extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 4),
         Text(label, style: AppTextStyles.labelSmall),
       ],
@@ -729,25 +847,35 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
           .eq('baby_id', baby.id)
           .order('memory_date', ascending: false);
 
-      final loaded = (res as List).map((m) => MemoryEntry(
-        id: m['id'] as String,
-        babyId: m['baby_id'] as String,
-        imageUrl: m['image_url'] as String?,
-        videoUrl: m['video_url'] as String?,
-        caption: m['caption'] as String?,
-        date: DateTime.parse(m['memory_date'] as String),
-        tag: memoryTagFromDb(m['tag'] as String? ?? 'everyday'),
-        ageMonths: m['age_months'] as int?,
-      )).toList();
+      final loaded = (res as List)
+          .map(
+            (m) => MemoryEntry(
+              id: m['id'] as String,
+              babyId: m['baby_id'] as String,
+              imageUrl: m['image_url'] as String?,
+              videoUrl: m['video_url'] as String?,
+              caption: m['caption'] as String?,
+              date: DateTime.parse(m['memory_date'] as String),
+              tag: memoryTagFromDb(m['tag'] as String? ?? 'everyday'),
+              ageMonths: m['age_months'] as int?,
+            ),
+          )
+          .toList();
 
-      if (mounted) setState(() { _memories = loaded; _loadingMemories = false; });
+      if (mounted) {
+        setState(() {
+          _memories = loaded;
+          _loadingMemories = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingMemories = false);
     }
   }
 
-  List<MemoryEntry> get _filtered =>
-      _selectedFilter == null ? _memories : _memories.where((m) => m.tag == _selectedFilter).toList();
+  List<MemoryEntry> get _filtered => _selectedFilter == null
+      ? _memories
+      : _memories.where((m) => m.tag == _selectedFilter).toList();
 
   Map<String, List<MemoryEntry>> get _grouped {
     final map = <String, List<MemoryEntry>>{};
@@ -758,21 +886,42 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
   }
 
   String _monthLabel(DateTime d) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[d.month - 1]} ${d.year}';
   }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final file = await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1200);
+      final file = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1200,
+      );
       if (file == null || !mounted) return;
       _showAddSheet(file.path, isVideo: false);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not access ${source == ImageSource.camera ? "camera" : "gallery"}. Check permissions.'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not access ${source == ImageSource.camera ? "camera" : "gallery"}. Check permissions.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -786,10 +935,14 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       _showAddSheet(file.path, isVideo: true);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not access ${source == ImageSource.camera ? "camera" : "gallery"}. Check permissions.'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not access ${source == ImageSource.camera ? "camera" : "gallery"}. Check permissions.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -798,10 +951,22 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _SourcePickerSheet(
-        onCameraPhoto:  () { Navigator.pop(context); _pickImage(ImageSource.camera); },
-        onGalleryPhoto: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
-        onCameraVideo:  () { Navigator.pop(context); _pickVideo(ImageSource.camera); },
-        onGalleryVideo: () { Navigator.pop(context); _pickVideo(ImageSource.gallery); },
+        onCameraPhoto: () {
+          Navigator.pop(context);
+          _pickImage(ImageSource.camera);
+        },
+        onGalleryPhoto: () {
+          Navigator.pop(context);
+          _pickImage(ImageSource.gallery);
+        },
+        onCameraVideo: () {
+          Navigator.pop(context);
+          _pickVideo(ImageSource.camera);
+        },
+        onGalleryVideo: () {
+          Navigator.pop(context);
+          _pickVideo(ImageSource.gallery);
+        },
       ),
     );
   }
@@ -825,17 +990,29 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusL)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        ),
         title: const Text('Delete Memory?'),
-        content: const Text('This will permanently delete this photo. This cannot be undone.'),
+        content: const Text(
+          'This will permanently delete this photo. This cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.titleMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: AppTextStyles.titleMedium.copyWith(color: AppColors.error)),
+            child: Text(
+              'Delete',
+              style: AppTextStyles.titleMedium.copyWith(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -843,20 +1020,27 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await Supabase.instance.client.from('memories').delete().eq('id', memory.id);
+      await Supabase.instance.client
+          .from('memories')
+          .delete()
+          .eq('id', memory.id);
       if (memory.imageUrl != null) {
         await CloudinaryService.deletePhoto(memory.imageUrl!);
       }
       if (memory.videoUrl != null) {
         await CloudinaryService.deletePhoto(memory.videoUrl!);
       }
-      if (mounted) setState(() => _memories.removeWhere((m) => m.id == memory.id));
+      if (mounted) {
+        setState(() => _memories.removeWhere((m) => m.id == memory.id));
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to delete: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -868,11 +1052,18 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       children: [
         // Loading overlay
         if (_loadingMemories)
-          const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5)),
+          const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primary,
+              strokeWidth: 2.5,
+            ),
+          ),
         ListView(
           padding: const EdgeInsets.fromLTRB(
-            AppConstants.paddingL, AppConstants.paddingL,
-            AppConstants.paddingL, 120,
+            AppConstants.paddingL,
+            AppConstants.paddingL,
+            AppConstants.paddingL,
+            120,
           ),
           children: [
             _buildStats(),
@@ -884,15 +1075,17 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
             else if (_filtered.isEmpty)
               _buildEmpty()
             else
-              ...grouped.entries.map((e) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildMonthHeader(e.key, e.value.length),
-                      const SizedBox(height: AppConstants.paddingM),
-                      _buildGrid(e.value),
-                      const SizedBox(height: AppConstants.paddingXL),
-                    ],
-                  )),
+              ...grouped.entries.map(
+                (e) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMonthHeader(e.key, e.value.length),
+                    const SizedBox(height: AppConstants.paddingM),
+                    _buildGrid(e.value),
+                    const SizedBox(height: AppConstants.paddingXL),
+                  ],
+                ),
+              ),
           ],
         ),
         Positioned(
@@ -907,7 +1100,10 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
               foregroundColor: Colors.white,
               elevation: 4,
               icon: const Icon(Icons.add_a_photo_rounded),
-              label: Text('Add Photo / Video', style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+              label: Text(
+                'Add Photo / Video',
+                style: AppTextStyles.labelLarge.copyWith(color: Colors.white),
+              ),
             ),
           ),
         ),
@@ -917,14 +1113,40 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
 
   Widget _buildStats() {
     final baby = ref.watch(babyProvider).baby ?? sampleBaby;
-    final milestoneCount = _memories.where((m) => m.tag == MemoryTag.milestone).length;
+    final milestoneCount = _memories
+        .where((m) => m.tag == MemoryTag.milestone)
+        .length;
     return Row(
       children: [
-        Expanded(child: _StatCard(value: '${_memories.length}', label: 'Memories', emoji: '📸', color: AppColors.primaryLight, textColor: AppColors.primary)),
+        Expanded(
+          child: _StatCard(
+            value: '${_memories.length}',
+            label: 'Memories',
+            emoji: '📸',
+            color: AppColors.primaryLight,
+            textColor: AppColors.primary,
+          ),
+        ),
         const SizedBox(width: AppConstants.paddingM),
-        Expanded(child: _StatCard(value: '${baby.ageInMonths}', label: 'Months old', emoji: '🎂', color: AppColors.accentPinkLight, textColor: AppColors.accentPink)),
+        Expanded(
+          child: _StatCard(
+            value: '${baby.ageInMonths}',
+            label: 'Months old',
+            emoji: '🎂',
+            color: AppColors.accentPinkLight,
+            textColor: AppColors.accentPink,
+          ),
+        ),
         const SizedBox(width: AppConstants.paddingM),
-        Expanded(child: _StatCard(value: '$milestoneCount', label: 'Milestones', emoji: '🏆', color: AppColors.accentOrangeLight, textColor: AppColors.accentOrange)),
+        Expanded(
+          child: _StatCard(
+            value: '$milestoneCount',
+            label: 'Milestones',
+            emoji: '🏆',
+            color: AppColors.accentOrangeLight,
+            textColor: AppColors.accentOrange,
+          ),
+        ),
       ],
     );
   }
@@ -934,16 +1156,26 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _FilterChip(label: 'All', emoji: '✨', isSelected: _selectedFilter == null, onTap: () => setState(() => _selectedFilter = null)),
+          _FilterChip(
+            label: 'All',
+            emoji: '✨',
+            isSelected: _selectedFilter == null,
+            onTap: () => setState(() => _selectedFilter = null),
+          ),
           const SizedBox(width: AppConstants.paddingS),
-          ...MemoryTag.values.map((tag) => Padding(
-                padding: const EdgeInsets.only(right: AppConstants.paddingS),
-                child: _FilterChip(
-                  label: tag.label, emoji: tag.emoji,
-                  isSelected: _selectedFilter == tag,
-                  onTap: () => setState(() => _selectedFilter = _selectedFilter == tag ? null : tag),
+          ...MemoryTag.values.map(
+            (tag) => Padding(
+              padding: const EdgeInsets.only(right: AppConstants.paddingS),
+              child: _FilterChip(
+                label: tag.label,
+                emoji: tag.emoji,
+                isSelected: _selectedFilter == tag,
+                onTap: () => setState(
+                  () => _selectedFilter = _selectedFilter == tag ? null : tag,
                 ),
-              )),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -952,11 +1184,21 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
   Widget _buildMonthHeader(String month, int count) {
     return Row(
       children: [
-        Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
         const SizedBox(width: 8),
         Text(month, style: AppTextStyles.headlineSmall),
         const SizedBox(width: 8),
-        Text('$count ${count == 1 ? "memory" : "memories"}', style: AppTextStyles.bodySmall),
+        Text(
+          '$count ${count == 1 ? "memory" : "memories"}',
+          style: AppTextStyles.bodySmall,
+        ),
       ],
     );
   }
@@ -966,14 +1208,19 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, crossAxisSpacing: 6, mainAxisSpacing: 6, childAspectRatio: 1,
+        crossAxisCount: 3,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+        childAspectRatio: 1,
       ),
       itemCount: memories.length,
       itemBuilder: (_, i) => GestureDetector(
         onTap: () async {
           final deletedId = await Navigator.push<String>(
             context,
-            MaterialPageRoute(builder: (_) => _MemoryDetailScreen(memory: memories[i])),
+            MaterialPageRoute(
+              builder: (_) => _MemoryDetailScreen(memory: memories[i]),
+            ),
           );
           if (deletedId != null && mounted) {
             setState(() => _memories.removeWhere((m) => m.id == deletedId));
@@ -993,9 +1240,15 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80, height: 80,
-              decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-              child: const Center(child: Text('🎬', style: TextStyle(fontSize: 36))),
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: Text('🎬', style: TextStyle(fontSize: 36)),
+              ),
             ),
             const SizedBox(height: AppConstants.paddingL),
             Text('No memories yet', style: AppTextStyles.headlineSmall),
@@ -1029,48 +1282,80 @@ class _MemoryGridTile extends StatelessWidget {
           _buildThumbnail(),
           // Bottom gradient
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: Container(
               height: 36,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                  colors: [Colors.black.withValues(alpha: 0.55), Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.55),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
           ),
           // Tag emoji badge
           Positioned(
-            top: 5, left: 5,
+            top: 5,
+            left: 5,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6)),
-              child: Text(memory.tag.emoji, style: const TextStyle(fontSize: 10)),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                memory.tag.emoji,
+                style: const TextStyle(fontSize: 10),
+              ),
             ),
           ),
           // Video play icon
           if (memory.isVideo)
             Center(
               child: Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           // Video badge
           if (memory.isVideo)
             Positioned(
-              bottom: 5, right: 5,
+              bottom: 5,
+              right: 5,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.videocam_rounded, color: Colors.white, size: 10),
                     SizedBox(width: 2),
-                    Text('VIDEO', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700)),
+                    Text(
+                      'VIDEO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1085,8 +1370,11 @@ class _MemoryGridTile extends StatelessWidget {
       // Use Cloudinary-generated video thumbnail
       final thumb = memory.videoThumbnailUrl;
       if (thumb != null) {
-        return Image.network(thumb, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _videoPlaceholder());
+        return Image.network(
+          thumb,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _videoPlaceholder(),
+        );
       }
       if (memory.videoPath != null) {
         // Local video — show placeholder (thumbnail generation needs video_thumbnail package)
@@ -1095,42 +1383,67 @@ class _MemoryGridTile extends StatelessWidget {
       return _videoPlaceholder();
     }
     // Image
-    if (memory.imagePath != null) return Image.file(File(memory.imagePath!), fit: BoxFit.cover);
+    if (memory.imagePath != null) {
+      return Image.file(File(memory.imagePath!), fit: BoxFit.cover);
+    }
     if (memory.imageUrl != null) {
-      return Image.network(memory.imageUrl!, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _imagePlaceholder());
+      return Image.network(
+        memory.imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _imagePlaceholder(),
+      );
     }
     return _imagePlaceholder();
   }
 
   Widget _videoPlaceholder() => Container(
     color: const Color(0xFF1A1A2E),
-    child: const Center(child: Icon(Icons.videocam_rounded, color: Colors.white54, size: 28)),
+    child: const Center(
+      child: Icon(Icons.videocam_rounded, color: Colors.white54, size: 28),
+    ),
   );
 
   Widget _imagePlaceholder() => Container(
     color: AppColors.primaryLight,
-    child: const Center(child: Icon(Icons.image_rounded, color: AppColors.primaryMid, size: 28)),
+    child: const Center(
+      child: Icon(Icons.image_rounded, color: AppColors.primaryMid, size: 28),
+    ),
   );
 }
 
 class _StatCard extends StatelessWidget {
   final String value, label, emoji;
   final Color color, textColor;
-  const _StatCard({required this.value, required this.label, required this.emoji, required this.color, required this.textColor});
+  const _StatCard({
+    required this.value,
+    required this.label,
+    required this.emoji,
+    required this.color,
+    required this.textColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(AppConstants.radiusL)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(emoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(height: 4),
-          Text(value, style: AppTextStyles.headlineMedium.copyWith(color: textColor)),
-          Text(label, style: AppTextStyles.labelSmall, textAlign: TextAlign.center),
+          Text(
+            value,
+            style: AppTextStyles.headlineMedium.copyWith(color: textColor),
+          ),
+          Text(
+            label,
+            style: AppTextStyles.labelSmall,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -1141,7 +1454,12 @@ class _FilterChip extends StatelessWidget {
   final String label, emoji;
   final bool isSelected;
   final VoidCallback onTap;
-  const _FilterChip({required this.label, required this.emoji, required this.isSelected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1153,17 +1471,23 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.divider, width: 1.5),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.divider,
+            width: 1.5,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(emoji, style: const TextStyle(fontSize: 13)),
             const SizedBox(width: 5),
-            Text(label, style: AppTextStyles.labelMedium.copyWith(
-              color: isSelected ? Colors.white : AppColors.textPrimary,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            )),
+            Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
@@ -1172,7 +1496,10 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _SourcePickerSheet extends StatelessWidget {
-  final VoidCallback onCameraPhoto, onGalleryPhoto, onCameraVideo, onGalleryVideo;
+  final VoidCallback onCameraPhoto,
+      onGalleryPhoto,
+      onCameraVideo,
+      onGalleryVideo;
   const _SourcePickerSheet({
     required this.onCameraPhoto,
     required this.onGalleryPhoto,
@@ -1185,12 +1512,24 @@ class _SourcePickerSheet extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(AppConstants.paddingL),
       padding: const EdgeInsets.all(AppConstants.paddingXL),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppConstants.radiusXXL)),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)))),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
           const SizedBox(height: AppConstants.paddingL),
           Text('Add a Memory', style: AppTextStyles.headlineMedium),
           const SizedBox(height: 4),
@@ -1201,9 +1540,25 @@ class _SourcePickerSheet extends StatelessWidget {
           const SizedBox(height: AppConstants.paddingS),
           Row(
             children: [
-              Expanded(child: _SourceOption(icon: Icons.camera_alt_rounded, label: 'Camera', color: AppColors.primaryLight, iconColor: AppColors.primary, onTap: onCameraPhoto)),
+              Expanded(
+                child: _SourceOption(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  color: AppColors.primaryLight,
+                  iconColor: AppColors.primary,
+                  onTap: onCameraPhoto,
+                ),
+              ),
               const SizedBox(width: AppConstants.paddingM),
-              Expanded(child: _SourceOption(icon: Icons.photo_library_rounded, label: 'Gallery', color: AppColors.accentPinkLight, iconColor: AppColors.accentPink, onTap: onGalleryPhoto)),
+              Expanded(
+                child: _SourceOption(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Gallery',
+                  color: AppColors.accentPinkLight,
+                  iconColor: AppColors.accentPink,
+                  onTap: onGalleryPhoto,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppConstants.paddingL),
@@ -1212,9 +1567,25 @@ class _SourcePickerSheet extends StatelessWidget {
           const SizedBox(height: AppConstants.paddingS),
           Row(
             children: [
-              Expanded(child: _SourceOption(icon: Icons.videocam_rounded, label: 'Camera', color: AppColors.accentOrangeLight, iconColor: AppColors.accentOrange, onTap: onCameraVideo)),
+              Expanded(
+                child: _SourceOption(
+                  icon: Icons.videocam_rounded,
+                  label: 'Camera',
+                  color: AppColors.accentOrangeLight,
+                  iconColor: AppColors.accentOrange,
+                  onTap: onCameraVideo,
+                ),
+              ),
               const SizedBox(width: AppConstants.paddingM),
-              Expanded(child: _SourceOption(icon: Icons.video_library_rounded, label: 'Gallery', color: AppColors.accentBlueLight, iconColor: AppColors.accentBlue, onTap: onGalleryVideo)),
+              Expanded(
+                child: _SourceOption(
+                  icon: Icons.video_library_rounded,
+                  label: 'Gallery',
+                  color: AppColors.accentBlueLight,
+                  iconColor: AppColors.accentBlue,
+                  onTap: onGalleryVideo,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppConstants.paddingM),
@@ -1229,7 +1600,13 @@ class _SourceOption extends StatelessWidget {
   final String label;
   final Color color, iconColor;
   final VoidCallback onTap;
-  const _SourceOption({required this.icon, required this.label, required this.color, required this.iconColor, required this.onTap});
+  const _SourceOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.iconColor,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1237,13 +1614,19 @@ class _SourceOption extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(AppConstants.radiusL)),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: iconColor, size: 32),
             const SizedBox(height: 8),
-            Text(label, style: AppTextStyles.titleMedium.copyWith(color: iconColor)),
+            Text(
+              label,
+              style: AppTextStyles.titleMedium.copyWith(color: iconColor),
+            ),
           ],
         ),
       ),
@@ -1256,7 +1639,12 @@ class _AddMemorySheet extends StatefulWidget {
   final bool isVideo;
   final BabyModel baby;
   final void Function(MemoryEntry) onSave;
-  const _AddMemorySheet({required this.mediaPath, required this.isVideo, required this.baby, required this.onSave});
+  const _AddMemorySheet({
+    required this.mediaPath,
+    required this.isVideo,
+    required this.baby,
+    required this.onSave,
+  });
 
   @override
   State<_AddMemorySheet> createState() => _AddMemorySheetState();
@@ -1309,40 +1697,56 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
 
       String savedId = DateTime.now().millisecondsSinceEpoch.toString();
       if (widget.baby.id.isNotEmpty) {
-        final inserted = await Supabase.instance.client.from('memories').insert({
-          'baby_id': widget.baby.id,
-          'user_id': userId,
-          if (imageUrl != null) 'image_url': imageUrl,
-          if (videoUrl != null) 'video_url': videoUrl,
-          'caption': _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
-          'tag': _selectedTag.dbValue,
-          'age_months': widget.baby.ageInMonths,
-          'memory_date': DateTime.now().toIso8601String().split('T').first,
-        }).select().single();
+        final inserted = await Supabase.instance.client
+            .from('memories')
+            .insert({
+              'baby_id': widget.baby.id,
+              'user_id': userId,
+              if (imageUrl != null) 'image_url': imageUrl,
+              if (videoUrl != null) 'video_url': videoUrl,
+              'caption': _captionController.text.trim().isEmpty
+                  ? null
+                  : _captionController.text.trim(),
+              'tag': _selectedTag.dbValue,
+              'age_months': widget.baby.ageInMonths,
+              'memory_date': DateTime.now().toIso8601String().split('T').first,
+            })
+            .select()
+            .single();
         savedId = inserted['id'] as String;
       }
 
-      widget.onSave(MemoryEntry(
-        id: savedId,
-        babyId: widget.baby.id,
-        imagePath: (!widget.isVideo && imageUrl == null) ? widget.mediaPath : null,
-        imageUrl: imageUrl,
-        videoPath: (widget.isVideo && videoUrl == null) ? widget.mediaPath : null,
-        videoUrl: videoUrl,
-        caption: _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
-        date: DateTime.now(),
-        tag: _selectedTag,
-        ageMonths: widget.baby.ageInMonths,
-      ));
+      widget.onSave(
+        MemoryEntry(
+          id: savedId,
+          babyId: widget.baby.id,
+          imagePath: (!widget.isVideo && imageUrl == null)
+              ? widget.mediaPath
+              : null,
+          imageUrl: imageUrl,
+          videoPath: (widget.isVideo && videoUrl == null)
+              ? widget.mediaPath
+              : null,
+          videoUrl: videoUrl,
+          caption: _captionController.text.trim().isEmpty
+              ? null
+              : _captionController.text.trim(),
+          date: DateTime.now(),
+          tag: _selectedTag,
+          ageMonths: widget.baby.ageInMonths,
+        ),
+      );
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() => _saving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to save memory: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save memory: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -1353,16 +1757,30 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
     return Container(
       margin: const EdgeInsets.all(AppConstants.paddingL),
       padding: EdgeInsets.only(
-        left: AppConstants.paddingXL, right: AppConstants.paddingXL,
-        top: AppConstants.paddingXL, bottom: AppConstants.paddingXL + bottomInset,
+        left: AppConstants.paddingXL,
+        right: AppConstants.paddingXL,
+        top: AppConstants.paddingXL,
+        bottom: AppConstants.paddingXL + bottomInset,
       ),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppConstants.radiusXXL)),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: AppConstants.paddingL),
             Text('Save Memory', style: AppTextStyles.headlineMedium),
             const SizedBox(height: AppConstants.paddingXL),
@@ -1371,49 +1789,75 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
               borderRadius: BorderRadius.circular(AppConstants.radiusL),
               child: widget.isVideo
                   ? _buildVideoPreview()
-                  : Image.file(File(widget.mediaPath), height: 200, width: double.infinity, fit: BoxFit.cover),
+                  : Image.file(
+                      File(widget.mediaPath),
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
             ),
             const SizedBox(height: AppConstants.paddingXL),
             Text('Caption', style: AppTextStyles.titleMedium),
             const SizedBox(height: AppConstants.paddingS),
             TextField(
               controller: _captionController,
-              maxLines: 2, maxLength: 150,
+              maxLines: 2,
+              maxLength: 150,
               decoration: InputDecoration(
                 hintText: 'Write something about this moment...',
-                hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
-                filled: true, fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM), borderSide: BorderSide.none),
+                hintStyle: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textHint,
+                ),
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  borderSide: BorderSide.none,
+                ),
                 counterStyle: AppTextStyles.labelSmall,
               ),
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: AppConstants.paddingL),
             Text('Tag this memory', style: AppTextStyles.titleMedium),
             const SizedBox(height: AppConstants.paddingM),
             Wrap(
-              spacing: AppConstants.paddingS, runSpacing: AppConstants.paddingS,
+              spacing: AppConstants.paddingS,
+              runSpacing: AppConstants.paddingS,
               children: MemoryTag.values.map((tag) {
                 final sel = _selectedTag == tag;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedTag = tag),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: sel ? AppColors.primary : AppColors.background,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                      border: Border.all(color: sel ? AppColors.primary : AppColors.divider, width: 1.5),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.radiusFull,
+                      ),
+                      border: Border.all(
+                        color: sel ? AppColors.primary : AppColors.divider,
+                        width: 1.5,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(tag.emoji, style: const TextStyle(fontSize: 13)),
                         const SizedBox(width: 5),
-                        Text(tag.label, style: AppTextStyles.labelMedium.copyWith(
-                          color: sel ? Colors.white : AppColors.textPrimary,
-                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        )),
+                        Text(
+                          tag.label,
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: sel ? Colors.white : AppColors.textPrimary,
+                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1426,15 +1870,29 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
               child: ElevatedButton(
                 onPressed: _saving ? null : _save,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
                   elevation: 0,
                 ),
                 child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(widget.isVideo ? 'Save Video 🎥' : 'Save Photo �',
-                        style: AppTextStyles.titleMedium.copyWith(color: Colors.white)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        widget.isVideo ? 'Save Video 🎥' : 'Save Photo �',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -1447,23 +1905,42 @@ class _AddMemorySheetState extends State<_AddMemorySheet> {
     final ctrl = _previewController;
     if (ctrl == null || !ctrl.value.isInitialized) {
       return Container(
-        height: 200, width: double.infinity,
+        height: 200,
+        width: double.infinity,
         color: const Color(0xFF1A1A2E),
-        child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
       );
     }
     return SizedBox(
-      height: 200, width: double.infinity,
+      height: 200,
+      width: double.infinity,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AspectRatio(aspectRatio: ctrl.value.aspectRatio, child: VideoPlayer(ctrl)),
+          AspectRatio(
+            aspectRatio: ctrl.value.aspectRatio,
+            child: VideoPlayer(ctrl),
+          ),
           GestureDetector(
-            onTap: () => setState(() => ctrl.value.isPlaying ? ctrl.pause() : ctrl.play()),
+            onTap: () => setState(
+              () => ctrl.value.isPlaying ? ctrl.pause() : ctrl.play(),
+            ),
             child: Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), shape: BoxShape.circle),
-              child: Icon(ctrl.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 28),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                ctrl.value.isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
             ),
           ),
         ],
@@ -1498,7 +1975,9 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
       _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
     } else if (path != null) {
       _videoController = VideoPlayerController.file(File(path));
-    } else {return;}
+    } else {
+      return;
+    }
 
     await _videoController!.initialize();
     _chewieController = ChewieController(
@@ -1524,7 +2003,20 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
   }
 
   String _formatDate(DateTime d) {
-    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
@@ -1532,12 +2024,30 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusL)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        ),
         title: Text('Delete ${widget.memory.isVideo ? "Video" : "Photo"}?'),
-        content: Text('This will permanently delete this ${widget.memory.isVideo ? "video" : "photo"} and remove it from your diary. This cannot be undone.'),
+        content: Text(
+          'This will permanently delete this ${widget.memory.isVideo ? "video" : "photo"} and remove it from your diary. This cannot be undone.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: AppTextStyles.titleMedium.copyWith(color: AppColors.error))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.titleMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Delete',
+              style: AppTextStyles.titleMedium.copyWith(color: AppColors.error),
+            ),
+          ),
         ],
       ),
     );
@@ -1548,14 +2058,29 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
   Future<void> _deleteMemory() async {
     setState(() => _deleting = true);
     try {
-      await Supabase.instance.client.from('memories').delete().eq('id', widget.memory.id).select();
-      if (widget.memory.imageUrl != null) await CloudinaryService.deletePhoto(widget.memory.imageUrl!);
-      if (widget.memory.videoUrl != null) await CloudinaryService.deletePhoto(widget.memory.videoUrl!);
-      if (mounted) Navigator.pop(context, widget.memory.id);
+      await Supabase.instance.client
+          .from('memories')
+          .delete()
+          .eq('id', widget.memory.id)
+          .select();
+      if (widget.memory.imageUrl != null) {
+        await CloudinaryService.deletePhoto(widget.memory.imageUrl!);
+      }
+      if (widget.memory.videoUrl != null) {
+        await CloudinaryService.deletePhoto(widget.memory.videoUrl!);
+      }
+      if (mounted) {
+        Navigator.pop(context, widget.memory.id);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _deleting = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -1570,29 +2095,73 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
           Positioned.fill(child: _buildMedia()),
           // Top bar
           Positioned(
-            top: 0, left: 0, right: 0,
+            top: 0,
+            left: 0,
+            right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingM, vertical: AppConstants.paddingS),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.paddingM,
+                  vertical: AppConstants.paddingS,
+                ),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle), child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 16)),
+                      icon: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), shape: BoxShape.circle), child: const Icon(Icons.share_rounded, color: Colors.white, size: 18)),
+                      icon: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.share_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
                       onPressed: () {},
                     ),
                     const SizedBox(width: 8),
                     IconButton(
                       icon: Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.7), shape: BoxShape.circle),
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.7),
+                          shape: BoxShape.circle,
+                        ),
                         child: _deleting
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 18),
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                       ),
                       onPressed: _deleting ? null : _confirmDelete,
                     ),
@@ -1604,11 +2173,20 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
           // Bottom info bar — only show when not playing video
           if (!widget.memory.isVideo || _chewieController == null)
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
               child: Container(
                 padding: const EdgeInsets.all(AppConstants.paddingXL),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent]),
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
                 child: SafeArea(
                   child: Column(
@@ -1618,30 +2196,72 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(AppConstants.radiusFull)),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(widget.memory.tag.emoji, style: const TextStyle(fontSize: 12)),
-                              const SizedBox(width: 4),
-                              Text(widget.memory.tag.label, style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
-                            ]),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(
+                                AppConstants.radiusFull,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  widget.memory.tag.emoji,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  widget.memory.tag.label,
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           if (widget.memory.ageMonths != null) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(AppConstants.radiusFull)),
-                              child: Text('${widget.memory.ageMonths} months old', style: AppTextStyles.labelMedium.copyWith(color: Colors.white)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(
+                                  AppConstants.radiusFull,
+                                ),
+                              ),
+                              child: Text(
+                                '${widget.memory.ageMonths} months old',
+                                style: AppTextStyles.labelMedium.copyWith(
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ],
                         ],
                       ),
                       if (widget.memory.caption != null) ...[
                         const SizedBox(height: 10),
-                        Text(widget.memory.caption!, style: AppTextStyles.bodyLarge.copyWith(color: Colors.white)),
+                        Text(
+                          widget.memory.caption!,
+                          style: AppTextStyles.bodyLarge.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 6),
-                      Text(_formatDate(widget.memory.date), style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
+                      Text(
+                        _formatDate(widget.memory.date),
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: Colors.white70,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1657,15 +2277,19 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
       if (_chewieController != null) {
         return Center(child: Chewie(controller: _chewieController!));
       }
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     // Photo
     return InteractiveViewer(
       child: widget.memory.imagePath != null
           ? Image.file(File(widget.memory.imagePath!), fit: BoxFit.contain)
           : widget.memory.imageUrl != null
-              ? Image.network(widget.memory.imageUrl!, fit: BoxFit.contain)
-              : const Center(child: Icon(Icons.image_rounded, color: Colors.white54, size: 64)),
+          ? Image.network(widget.memory.imageUrl!, fit: BoxFit.contain)
+          : const Center(
+              child: Icon(Icons.image_rounded, color: Colors.white54, size: 64),
+            ),
     );
   }
 }

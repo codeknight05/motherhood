@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/services/supabase_service.dart';
 import 'login_screen.dart';
 import '../../../core/widgets/main_shell.dart';
 import '../../onboarding/presentation/baby_setup_screen.dart';
@@ -29,9 +30,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       duration: const Duration(milliseconds: 1200),
     );
     _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-    _scaleAnim = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _controller.forward();
     _navigate();
   }
@@ -49,7 +51,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
-    // User is logged in — check if they have a baby profile
+    // User is logged in — check profile role and baby profile.
+    final profile = await SupabaseService.fetchProfile(session.user.id);
+    if (!mounted) return;
+
+    if (profile?['role'] == 'family') {
+      _go(const MainShell());
+      return;
+    }
+
     await ref.read(babyProvider.notifier).loadBaby();
     if (!mounted) return;
 
@@ -71,8 +81,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   bool _isExpired(Session session) {
     final expiresAt = session.expiresAt;
     if (expiresAt == null) return false;
-    return DateTime.now()
-        .isAfter(DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000));
+    return DateTime.now().isAfter(
+      DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000),
+    );
   }
 
   @override

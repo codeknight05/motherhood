@@ -55,11 +55,7 @@ class BabyNotifier extends StateNotifier<BabyState> {
           hasChecked: true,
         );
       } else {
-        state = state.copyWith(
-          baby: null,
-          isLoading: false,
-          hasChecked: true,
-        );
+        state = state.copyWith(baby: null, isLoading: false, hasChecked: true);
       }
     } catch (e) {
       state = state.copyWith(
@@ -90,13 +86,13 @@ class BabyNotifier extends StateNotifier<BabyState> {
       final insertData = {
         'user_id': user.id,
         'name': name,
-        'birth_date': isDueDate
-            ? dueDate!.toIso8601String().split('T').first
-            : birthDate.toIso8601String().split('T').first,
+        if (!isDueDate)
+          'birth_date': birthDate.toIso8601String().split('T').first,
         'gender': gender,
         if (heightCm != null) 'height_cm': heightCm,
         if (weightKg != null) 'weight_kg': weightKg,
-        if (dueDate != null) 'due_date': dueDate.toIso8601String().split('T').first,
+        if (dueDate != null)
+          'due_date': dueDate.toIso8601String().split('T').first,
       };
 
       final res = await Supabase.instance.client
@@ -127,15 +123,28 @@ class BabyNotifier extends StateNotifier<BabyState> {
   }
 
   BabyModel _fromMap(Map<String, dynamic> map) {
+    final dueDate = map['due_date'] != null
+        ? DateTime.parse(map['due_date'] as String)
+        : null;
+    final rawBirthDate = map['birth_date'] != null
+        ? DateTime.parse(map['birth_date'] as String)
+        : null;
+    final birthDate =
+        dueDate != null &&
+            rawBirthDate != null &&
+            !rawBirthDate.isBefore(DateTime.now())
+        ? null
+        : rawBirthDate;
+
     return BabyModel(
       id: map['id'] as String,
       name: map['name'] as String? ?? 'My Baby',
-      birthDate: map['birth_date'] != null ? DateTime.parse(map['birth_date'] as String) : null,
+      birthDate: birthDate,
       gender: map['gender'] as String? ?? 'girl',
       heightCm: (map['height_cm'] as num?)?.toDouble(),
       weightKg: (map['weight_kg'] as num?)?.toDouble(),
       photoUrl: map['photo_url'] as String?,
-      dueDate: map['due_date'] != null ? DateTime.parse(map['due_date'] as String) : null,
+      dueDate: dueDate,
     );
   }
 }
