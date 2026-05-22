@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/section_header.dart';
+import '../../../models/article_model.dart';
+import 'article_detail_screen.dart';
 
 class LearnScreen extends StatelessWidget {
   const LearnScreen({super.key});
@@ -72,10 +74,17 @@ class LearnScreen extends StatelessWidget {
   ];
 
   static final List<Map<String, String>> _trending = [
-    {'title': 'When will my baby start speaking?'},
+    {'title': 'How to manage toddler tantrums with calm'},
     {'title': "Screen time for toddlers: What's right?"},
     {'title': 'Signs your baby is ready for solid foods'},
   ];
+
+  void _openArticle(BuildContext context, String title) {
+    final article = articleForTitle(title) ?? sampleArticles.first;
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => ArticleDetailScreen(article: article),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,11 +102,11 @@ class LearnScreen extends StatelessWidget {
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildCategories(),
                 const SizedBox(height: AppConstants.paddingXL),
-                _buildFeaturedArticles(),
+                _buildFeaturedArticles(context),
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildExpertPicks(),
                 const SizedBox(height: AppConstants.paddingXL),
-                _buildTrending(),
+                _buildTrending(context),
                 const SizedBox(height: 100),
               ]),
             ),
@@ -132,11 +141,9 @@ class LearnScreen extends StatelessWidget {
             children: [
               const Icon(Icons.notifications_outlined, color: AppColors.textPrimary, size: 24),
               Positioned(
-                right: -2,
-                top: -2,
+                right: -2, top: -2,
                 child: Container(
-                  width: 14,
-                  height: 14,
+                  width: 14, height: 14,
                   decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
                   child: const Center(child: Text('2', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700))),
                 ),
@@ -172,10 +179,7 @@ class LearnScreen extends StatelessWidget {
           Container(
             margin: const EdgeInsets.all(6),
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(8)),
             child: const Icon(Icons.tune_rounded, color: AppColors.primary, size: 16),
           ),
         ],
@@ -206,27 +210,13 @@ class LearnScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: cat['color'] as Color,
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                          ),
+                          width: 54, height: 54,
+                          decoration: BoxDecoration(color: cat['color'] as Color, borderRadius: BorderRadius.circular(AppConstants.radiusM)),
                           child: Center(child: Text(cat['emoji'] as String, style: const TextStyle(fontSize: 24))),
                         ),
                         const SizedBox(height: 5),
-                        Text(
-                          cat['label'] as String,
-                          style: AppTextStyles.labelSmall.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          cat['count'] as String,
-                          style: AppTextStyles.labelSmall,
-                          textAlign: TextAlign.center,
-                        ),
+                        Text(cat['label'] as String, style: AppTextStyles.labelSmall.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Text(cat['count'] as String, style: AppTextStyles.labelSmall, textAlign: TextAlign.center),
                       ],
                     ),
                   ),
@@ -239,13 +229,12 @@ class LearnScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedArticles() {
+  Widget _buildFeaturedArticles(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(title: 'Featured Articles', actionLabel: 'View All', onAction: () {}),
         const SizedBox(height: AppConstants.paddingM),
-        // No fixed height — cards size themselves naturally
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -259,7 +248,7 @@ class LearnScreen extends StatelessWidget {
                   width: 200,
                   child: AppCard(
                     padding: EdgeInsets.zero,
-                    onTap: () {},
+                    onTap: () => _openArticle(context, article['title'] as String),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -273,29 +262,16 @@ class LearnScreen extends StatelessWidget {
                               ),
                               child: Image.network(
                                 article['image'] as String,
-                                height: 115,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  height: 115,
-                                  color: AppColors.primaryLight,
-                                  child: const Center(child: Icon(Icons.article_rounded, color: AppColors.primaryMid, size: 36)),
-                                ),
+                                height: 115, width: double.infinity, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(height: 115, color: AppColors.primaryLight, child: const Center(child: Icon(Icons.article_rounded, color: AppColors.primaryMid, size: 36))),
                               ),
                             ),
                             Positioned(
-                              bottom: 8,
-                              left: 8,
+                              bottom: 8, left: 8,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: article['categoryColor'] as Color,
-                                  borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                                ),
-                                child: Text(
-                                  article['category'] as String,
-                                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
-                                ),
+                                decoration: BoxDecoration(color: article['categoryColor'] as Color, borderRadius: BorderRadius.circular(AppConstants.radiusFull)),
+                                child: Text(article['category'] as String, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
                               ),
                             ),
                           ],
@@ -306,19 +282,9 @@ class LearnScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                article['title'] as String,
-                                style: AppTextStyles.titleMedium,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(article['title'] as String, style: AppTextStyles.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 4),
-                              Text(
-                                article['description'] as String,
-                                style: AppTextStyles.bodySmall,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(article['description'] as String, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
@@ -377,40 +343,23 @@ class LearnScreen extends StatelessWidget {
                               ),
                               child: Image.network(
                                 video['image'] as String,
-                                height: 108,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  height: 108,
-                                  color: video['bgColor'] as Color,
-                                  child: const Center(child: Icon(Icons.play_circle_rounded, color: AppColors.primary, size: 40)),
-                                ),
+                                height: 108, width: double.infinity, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(height: 108, color: video['bgColor'] as Color, child: const Center(child: Icon(Icons.play_circle_rounded, color: AppColors.primary, size: 40))),
                               ),
                             ),
                             Positioned(
-                              top: 8,
-                              left: 8,
+                              top: 8, left: 8,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  video['duration'] as String,
-                                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
-                                ),
+                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6)),
+                                child: Text(video['duration'] as String, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
                               ),
                             ),
                             Positioned.fill(
                               child: Center(
                                 child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    shape: BoxShape.circle,
-                                  ),
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
                                   child: const Icon(Icons.play_arrow_rounded, color: AppColors.primary, size: 22),
                                 ),
                               ),
@@ -423,12 +372,7 @@ class LearnScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                video['title'] as String,
-                                style: AppTextStyles.titleMedium,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(video['title'] as String, style: AppTextStyles.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 4),
                               Row(
                                 children: [
@@ -460,7 +404,7 @@ class LearnScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTrending() {
+  Widget _buildTrending(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -469,12 +413,11 @@ class LearnScreen extends StatelessWidget {
         ..._trending.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: AppConstants.paddingS),
               child: AppCard(
-                onTap: () {},
+                onTap: () => _openArticle(context, item['title']!),
                 child: Row(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 32, height: 32,
                       decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
                       child: const Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 16),
                     ),
@@ -482,14 +425,8 @@ class LearnScreen extends StatelessWidget {
                     Expanded(child: Text(item['title']!, style: AppTextStyles.titleMedium)),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                      ),
-                      child: Text(
-                        'Trending',
-                        style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
-                      ),
+                      decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(AppConstants.radiusFull)),
+                      child: Text('Trending', style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
                     ),
                     const SizedBox(width: 4),
                     const Icon(Icons.chevron_right_rounded, color: AppColors.textHint, size: 18),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/milestone_model.dart';
 import '../../models/milestone_library.dart';
+import '../services/milestone_guidance_service.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -59,17 +60,17 @@ class MilestonesNotifier extends StateNotifier<MilestonesState> {
     final band = bandIndex ?? ageBandFromMonths(ageInMonths);
     state = state.copyWith(isLoading: true, error: null, selectedBandIndex: band);
 
-    // 1. Get library defaults for this band (all notStarted)
-    final libraryGuidance = guidanceForAgeBand(band);
+    // 1. Fetch guidance content (Supabase → local library fallback)
+    final libraryGuidance = await MilestoneGuidanceService.getGuidance(band);
 
     try {
-      // 2. Fetch Supabase statuses for this baby
+      // 2. Fetch user's milestone statuses from Supabase
       final rows = await _client
           .from('milestones')
           .select('title, category, status, achieved_at')
           .eq('baby_id', babyId);
 
-      // Build a lookup: title_lower → (status, achievedDate)
+      // Build lookup: title_lower → (status, achievedDate)
       final Map<String, (MilestoneStatus, String?)> statusMap = {};
       for (final row in (rows as List)) {
         final title = (row['title'] as String).toLowerCase();
@@ -78,7 +79,7 @@ class MilestonesNotifier extends StateNotifier<MilestonesState> {
         statusMap[title] = (status, date);
       }
 
-      // 3. Overlay Supabase statuses onto library guidance
+      // 3. Overlay Supabase statuses onto guidance content
       final enriched = libraryGuidance
           .map((g) => enrichGuidance(g, statusMap))
           .toList();

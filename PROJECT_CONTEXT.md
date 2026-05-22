@@ -482,18 +482,77 @@ Milestones tab
 
 ---
 
+### Session 6 — May 2026
+
+#### ✅ Video Upload in Memory Diary
+
+**`pubspec.yaml`** — added `video_player: ^2.9.2` and `chewie: ^1.8.5`
+
+**`memory_model.dart`** — extended `MemoryEntry`:
+- `videoPath` — local video file path (before upload)
+- `videoUrl` — remote Cloudinary video URL (after upload)
+- `isVideo` getter — true when video fields are set
+- `videoThumbnailUrl` — Cloudinary auto-thumbnail via `so_0,w_400,h_400,c_fill,q_auto,f_jpg` transformation
+
+**`cloudinary_service.dart`** — added `uploadMemoryVideo()` with `resourceType: Video`
+
+**`baby_journey_screen.dart`** — Memory Diary tab:
+- `_pickVideo()` using `_picker.pickVideo(maxDuration: 5 minutes)`
+- `showSourcePicker()` now shows 4 options in 2 rows: Take Photo / Photo Gallery / Record Video / Video Gallery
+- `_SourcePickerSheet` redesigned with Photo and Video sections
+- `_AddMemorySheet` accepts `isVideo` flag, shows video preview with play/pause using `VideoPlayerController`, uploads to correct Cloudinary resource type, saves `video_url` to Supabase
+- `_MemoryGridTile` shows Cloudinary video thumbnail + play icon overlay + VIDEO badge for videos
+- `_MemoryDetailScreen` plays videos with Chewie (full controls, fullscreen), falls back to photo viewer for images
+- `_loadMemories` reads `video_url` from Supabase
+- Delete flow handles both `imageUrl` and `videoUrl`
+- FAB label updated to "Add Photo / Video"
+- Empty state updated with 🎬 emoji and "photo or video" copy
+
+**Supabase schema change required:**
+```sql
+alter table public.memories add column if not exists video_url text;
+```
+
+#### ✅ Milestone → Memory Capture Prompt
+
+**`milestone_guidance_screen.dart`** — `_updateStatus()` now detects when a milestone is newly marked Achieved and shows `_MilestoneCelebrationSheet`:
+- Animated 🎉 emoji with elastic scale-in
+- Shows milestone name and baby name
+- "Capture this moment!" prompt card
+- 4 media buttons: Take Photo, From Gallery, Record Video, Video Gallery
+- Uploads directly to Cloudinary + saves to Supabase `memories` tagged as `milestone` with auto-caption
+- Success state with confirmation + "Find it in the Memory Diary tab"
+- "Maybe later" skip option
+
+#### ✅ Milestone Page Polish
+
+**`baby_journey_screen.dart`** — milestones tab:
+- **Pull-to-refresh** — swipe down triggers `_onRefresh()` → `loadMilestones(forceRefresh: true)`
+- **Cache check** — `_loadBand()` skips Supabase if guidance already loaded for that band (fixes slow tab-switch)
+- **`WidgetsBindingObserver`** — `didChangeAppLifecycleState` recalculates baby's band on app resume; resets if baby moved to a new age band
+- **`ref.listenManual`** in `initState` (not `build`) — registers once, fires when baby loads
+- **"👶 Now" indicator** — band chip for baby's actual age shows label above + thicker purple border
+- **All-done celebration state** — category card shows 🏆 emoji, "All done!" badge, accent border, "✨ Amazing progress!" text when all milestones achieved
+- **`ageBandFromDays(days)`** added to `milestone_model.dart` — precise day-based band lookup (avoids month rounding)
+- **Band selector height** fixed to 84px to prevent 1px overflow
+
+**Dead files deleted:**
+- `milestone_category_screen.dart` — removed (no longer used)
+- `milestone_detail_screen.dart` — removed (no longer used)
+
+---
+
 ## 13. Pending Tasks
 
 ### 🔴 High Priority
+
+- [ ] **Supabase `video_url` column** — run `alter table public.memories add column if not exists video_url text;` in Supabase SQL editor. Without this, video memories fail to save.
 
 - [ ] **Loading shimmer placeholders**  
   While fetching baby data, memories, and milestones from Supabase. The `shimmer` package is already in `pubspec.yaml` — just needs to be wired into the screens.
 
 - [ ] **Pregnancy tracking module**  
   Pregnant users currently see the same home screen as parents. Needs a separate home screen with week-by-week updates, symptom tracker, and kick counter.
-
-- [ ] **Custom milestones**  
-  Let parents add their own milestones beyond the library defaults. Requires a FAB in `MilestoneGuidanceScreen` → bottom sheet → Supabase insert with `is_custom: true`.
 
 - [ ] **Push notifications**  
   Vaccination reminders, milestone prompts, daily tips. Requires FCM setup + GoRouter for deep link handling.
@@ -557,9 +616,9 @@ Planned for Phase 2 after push notifications and multiple babies are done.
 
 8. **Milestone library title matching with Supabase** — `enrichGuidance()` matches by milestone title (lowercase). If the Supabase `milestone_definitions` table uses different wording, statuses won't be overlaid. The library is now the source of truth — consider dropping the Supabase `milestone_definitions` table and storing only user statuses (title + category + status + achieved_at).
 
-9. **`milestone_category_screen.dart` and `milestone_detail_screen.dart` are legacy** — the new flow goes directly to `MilestoneGuidanceScreen`. These files are kept to avoid breaking any remaining references but are not used in the main navigation flow.
+9. **`MilestoneGuidanceScreen` video guidance section** — the About section has no video cards. If video guidance is needed, add a `videoUrls` field to `CategoryGuidance` and integrate `video_player` or `chewie`.
 
-10. **`MilestoneGuidanceScreen` video section is not implemented** — the About section has no video cards in the new design. If video guidance is needed, add a `videoUrls` field to `CategoryGuidance` and integrate `video_player` or `chewie`.
+10. **`video_url` Supabase column** — must be added manually before video memories work. SQL: `alter table public.memories add column if not exists video_url text;`
 
 ---
 
