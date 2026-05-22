@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../providers/baby_provider.dart';
 import '../providers/milestones_provider.dart';
+import '../services/supabase_service.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -28,18 +29,26 @@ class _MainShellState extends ConsumerState<MainShell> {
       final babyState = ref.read(babyProvider);
       if (!babyState.hasChecked) {
         ref.read(babyProvider.notifier).loadBaby().then((_) {
-          final baby = ref.read(babyProvider).baby;
-          if (baby != null) {
-            ref.read(milestonesProvider.notifier)
-                .loadMilestones(baby.id, baby.ageInMonths);
-          }
+          _loadMilestonesForCurrentUser();
         });
-      } else if (babyState.baby != null) {
-        final baby = babyState.baby!;
-        ref.read(milestonesProvider.notifier)
-            .loadMilestones(baby.id, baby.ageInMonths);
+      } else {
+        _loadMilestonesForCurrentUser();
       }
     });
+  }
+
+  Future<void> _loadMilestonesForCurrentUser() async {
+    final user = SupabaseService.currentUser;
+    final baby = ref.read(babyProvider).baby;
+    if (user == null || baby == null) return;
+
+    final profile = await SupabaseService.fetchProfile(user.id);
+    final audience = profile?['role'] as String? ?? 'parent';
+    if (!mounted) return;
+
+    ref
+        .read(milestonesProvider.notifier)
+        .loadMilestones(baby.id, baby.ageInMonths, audience: audience);
   }
 
   final List<Widget> _screens = const [
@@ -53,10 +62,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -78,11 +84,34 @@ class _MainShellState extends ConsumerState<MainShell> {
           height: 64,
           child: Row(
             children: [
-              _NavItem(icon: Icons.home_rounded, label: 'Home', isSelected: _currentIndex == 0, onTap: () => setState(() => _currentIndex = 0)),
-              _NavItem(icon: Icons.directions_walk_rounded, label: 'Milestones', isSelected: _currentIndex == 1, onTap: () => setState(() => _currentIndex = 1)),
-              _CenterNavItem(isSelected: _currentIndex == 2, onTap: () => setState(() => _currentIndex = 2)),
-              _NavItem(icon: Icons.people_rounded, label: 'Community', isSelected: _currentIndex == 3, onTap: () => setState(() => _currentIndex = 3)),
-              _NavItem(icon: Icons.menu_book_rounded, label: 'Learn', isSelected: _currentIndex == 4, onTap: () => setState(() => _currentIndex = 4)),
+              _NavItem(
+                icon: Icons.home_rounded,
+                label: 'Home',
+                isSelected: _currentIndex == 0,
+                onTap: () => setState(() => _currentIndex = 0),
+              ),
+              _NavItem(
+                icon: Icons.directions_walk_rounded,
+                label: 'Milestones',
+                isSelected: _currentIndex == 1,
+                onTap: () => setState(() => _currentIndex = 1),
+              ),
+              _CenterNavItem(
+                isSelected: _currentIndex == 2,
+                onTap: () => setState(() => _currentIndex = 2),
+              ),
+              _NavItem(
+                icon: Icons.people_rounded,
+                label: 'Community',
+                isSelected: _currentIndex == 3,
+                onTap: () => setState(() => _currentIndex = 3),
+              ),
+              _NavItem(
+                icon: Icons.menu_book_rounded,
+                label: 'Learn',
+                isSelected: _currentIndex == 4,
+                onTap: () => setState(() => _currentIndex = 4),
+              ),
             ],
           ),
         ),
@@ -97,7 +126,12 @@ class _NavItem extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _NavItem({required this.icon, required this.label, required this.isSelected, required this.onTap});
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -108,12 +142,20 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22, color: isSelected ? AppColors.navSelected : AppColors.navUnselected),
+            Icon(
+              icon,
+              size: 22,
+              color: isSelected
+                  ? AppColors.navSelected
+                  : AppColors.navUnselected,
+            ),
             const SizedBox(height: 3),
             Text(
               label,
               style: AppTextStyles.labelSmall.copyWith(
-                color: isSelected ? AppColors.navSelected : AppColors.navUnselected,
+                color: isSelected
+                    ? AppColors.navSelected
+                    : AppColors.navUnselected,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
@@ -146,19 +188,33 @@ class _CenterNavItem extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? AppColors.primaryGradient
-                    : const LinearGradient(colors: [AppColors.primaryMid, AppColors.primaryMid]),
+                    : const LinearGradient(
+                        colors: [AppColors.primaryMid, AppColors.primaryMid],
+                      ),
                 shape: BoxShape.circle,
                 boxShadow: isSelected
-                    ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 3))]
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
                     : [],
               ),
-              child: const Icon(Icons.rice_bowl_rounded, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.rice_bowl_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               'Food Menu',
               style: AppTextStyles.labelSmall.copyWith(
-                color: isSelected ? AppColors.navSelected : AppColors.navUnselected,
+                color: isSelected
+                    ? AppColors.navSelected
+                    : AppColors.navUnselected,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

@@ -10,19 +10,25 @@ class MilestoneGuidanceService {
 
   static final _client = Supabase.instance.client;
 
-  // In-memory cache: bandIndex → list of 6 CategoryGuidance objects
-  static final Map<int, List<CategoryGuidance>> _cache = {};
+  // In-memory cache: audience:bandIndex → list of 6 CategoryGuidance objects
+  static final Map<String, List<CategoryGuidance>> _cache = {};
 
   /// Returns guidance for [bandIndex], from cache → Supabase → local library.
-  static Future<List<CategoryGuidance>> getGuidance(int bandIndex) async {
+  static Future<List<CategoryGuidance>> getGuidance(
+    int bandIndex, {
+    String audience = 'parent',
+  }) async {
+    final cacheKey = '$audience:$bandIndex';
+
     // 1. Return from cache if available
-    if (_cache.containsKey(bandIndex)) return _cache[bandIndex]!;
+    if (_cache.containsKey(cacheKey)) return _cache[cacheKey]!;
 
     // 2. Try Supabase
     try {
       final rows = await _client
           .from('milestone_guidance')
           .select()
+          .eq('audience', audience)
           .eq('band_index', bandIndex)
           .order('category');
 
@@ -30,7 +36,7 @@ class MilestoneGuidanceService {
         final guidance = (rows as List)
             .map((r) => CategoryGuidance.fromJson(r as Map<String, dynamic>))
             .toList();
-        _cache[bandIndex] = guidance;
+        _cache[cacheKey] = guidance;
         return guidance;
       }
     } catch (e) {
@@ -39,7 +45,7 @@ class MilestoneGuidanceService {
 
     // 3. Fall back to local Dart library
     final fallback = guidanceForAgeBand(bandIndex);
-    _cache[bandIndex] = fallback;
+    _cache[cacheKey] = fallback;
     return fallback;
   }
 
@@ -47,14 +53,18 @@ class MilestoneGuidanceService {
   static void clearCache() => _cache.clear();
 
   /// Seeds one age band into Supabase and updates the in-memory cache.
-  static Future<int> seedBand(int bandIndex) async {
+  static Future<int> seedBand(
+    int bandIndex, {
+    String audience = 'parent',
+  }) async {
     final guidance = guidanceForAgeBand(bandIndex);
     for (final g in guidance) {
-      await _client
-          .from('milestone_guidance')
-          .upsert(g.toJson(), onConflict: 'band_index,category');
+      await _client.from('milestone_guidance').upsert({
+        ...g.toJson(),
+        'audience': audience,
+      }, onConflict: 'audience,band_index,category');
     }
-    _cache[bandIndex] = guidance;
+    _cache['$audience:$bandIndex'] = guidance;
     return guidance.length;
   }
 
