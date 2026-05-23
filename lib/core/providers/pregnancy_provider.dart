@@ -52,11 +52,10 @@ class PregnancyNotifier extends StateNotifier<PregnancyState> {
   }
 
   /// Calculate pregnancy week from due date and load it.
+  /// Due date = LMP + 280 days, so LMP = dueDate - 280 days.
   Future<void> loadFromDueDate(DateTime dueDate) async {
-    final today = DateTime.now();
-    final daysUntilDue = dueDate.difference(today).inDays;
-    // Pregnancy is 280 days (40 weeks) total
-    final daysPregnant = 280 - daysUntilDue;
+    final lmp = dueDate.subtract(const Duration(days: 280));
+    final daysPregnant = DateTime.now().difference(lmp).inDays.clamp(0, 280);
     final week = (daysPregnant / 7).ceil().clamp(1, 40);
     await loadWeek(week);
   }

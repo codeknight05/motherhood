@@ -72,8 +72,9 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
   String _gender = 'girl';
   File? _photoFile;
 
-  // Pregnant fields
-  DateTime? _dueDate;
+  // Pregnant fields — we collect LMP, derive due date from it
+  DateTime? _lmpDate; // Last Menstrual Period date
+  DateTime? get _dueDate => _lmpDate?.add(const Duration(days: 280));
 
   final _picker = ImagePicker();
 
@@ -114,10 +115,12 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: isDueDate
-          ? (now.add(const Duration(days: 60)))
+          ? (_lmpDate ?? now.subtract(const Duration(days: 14)))
           : (_birthDate ?? DateTime(now.year, now.month - 8)),
-      firstDate: isDueDate ? now : DateTime(now.year - 10),
-      lastDate: isDueDate ? now.add(const Duration(days: 300)) : now,
+      firstDate: isDueDate
+          ? now.subtract(const Duration(days: 280)) // LMP can be up to 40 weeks ago
+          : DateTime(now.year - 10),
+      lastDate: isDueDate ? now : now, // LMP must be in the past
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.light(primary: AppColors.primary, onPrimary: Colors.white, surface: AppColors.surface),
@@ -127,7 +130,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (isDueDate) { _dueDate = picked; }
+        if (isDueDate) { _lmpDate = picked; }
         else { _birthDate = picked; }
       });
     }
@@ -385,18 +388,60 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Expected due date', style: AppTextStyles.titleMedium),
-        const SizedBox(height: AppConstants.paddingS),
+        // Explanation card
+        Container(
+          padding: const EdgeInsets.all(AppConstants.paddingL),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(AppConstants.radiusL),
+            border: Border.all(color: AppColors.primaryMid),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('💡', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: AppConstants.paddingM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'How we calculate your week',
+                      style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pregnancy is counted from the first day of your last menstrual period (LMP). We use this to calculate your current week and estimated due date — no doctor visit needed yet.',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppConstants.paddingXL),
+
+        Text('First day of your last period', style: AppTextStyles.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          'This is your LMP date — the start of your last menstrual cycle',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: AppConstants.paddingM),
         _DatePickerField(
-          date: _dueDate,
-          hint: 'Select your due date',
+          date: _lmpDate,
+          hint: 'Select LMP date',
           onTap: () => _pickDate(isDueDate: true),
         ),
         const SizedBox(height: AppConstants.paddingXL),
-        if (_dueDate != null) ...[
-          _PregnancyWeekCard(dueDate: _dueDate!),
+
+        // Live preview card — shows calculated week + due date
+        if (_lmpDate != null) ...[
+          _PregnancyWeekCard(lmpDate: _lmpDate!),
           const SizedBox(height: AppConstants.paddingM),
         ],
+
         Container(
           padding: const EdgeInsets.all(AppConstants.paddingL),
           decoration: BoxDecoration(
@@ -405,11 +450,11 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
           ),
           child: Row(
             children: [
-              const Text('💡', style: TextStyle(fontSize: 20)),
+              const Text('✅', style: TextStyle(fontSize: 18)),
               const SizedBox(width: AppConstants.paddingM),
               Expanded(
                 child: Text(
-                  'You can add your baby\'s details after they are born.',
+                  'You can update your due date later once confirmed by your doctor.',
                   style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary),
                 ),
               ),
@@ -623,14 +668,16 @@ class _DatePickerField extends StatelessWidget {
 }
 
 class _PregnancyWeekCard extends StatelessWidget {
-  final DateTime dueDate;
-  const _PregnancyWeekCard({required this.dueDate});
+  final DateTime lmpDate;
+  const _PregnancyWeekCard({required this.lmpDate});
 
   @override
   Widget build(BuildContext context) {
-    final daysLeft = dueDate.difference(DateTime.now()).inDays;
-    final conceptionApprox = dueDate.subtract(const Duration(days: 280));
-    final week = (DateTime.now().difference(conceptionApprox).inDays ~/ 7).clamp(1, 42);
+    final dueDate = lmpDate.add(const Duration(days: 280));
+    final daysPregnant = DateTime.now().difference(lmpDate).inDays.clamp(0, 280);
+    final week = (daysPregnant / 7).ceil().clamp(1, 40);
+    final daysLeft = dueDate.difference(DateTime.now()).inDays.clamp(0, 280);
+    final dueDateStr = DateFormat('d MMM yyyy').format(dueDate);
 
     return Container(
       padding: const EdgeInsets.all(AppConstants.paddingL),
@@ -638,22 +685,54 @@ class _PregnancyWeekCard extends StatelessWidget {
         gradient: AppColors.softPurpleGradient,
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('🤰', style: TextStyle(fontSize: 36)),
-          const SizedBox(width: AppConstants.paddingM),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            children: [
+              const Text('🤰', style: TextStyle(fontSize: 32)),
+              const SizedBox(width: AppConstants.paddingM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Week $week of pregnancy',
+                      style: AppTextStyles.headlineSmall.copyWith(color: AppColors.primary),
+                    ),
+                    Text(
+                      '$daysLeft days to go',
+                      style: AppTextStyles.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppConstants.paddingM),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+            ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Week $week of pregnancy', style: AppTextStyles.headlineSmall.copyWith(color: AppColors.primary)),
+                const Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
                 Text(
-                  daysLeft > 0 ? '$daysLeft days until your due date' : 'Due any day now!',
-                  style: AppTextStyles.bodySmall,
+                  'Estimated due date: $dueDateStr',
+                  style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'This will be confirmed by your doctor at your first appointment.',
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
