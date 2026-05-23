@@ -57,6 +57,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final profile = await SupabaseService.fetchProfile(session.user.id);
     if (!mounted) return;
 
+    debugPrint('[SplashScreen] role=${profile?['role']}, userId=${session.user.id}');
+
     if (profile?['role'] == 'family') {
       _go(const MainShell());
       return;
@@ -73,6 +75,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Pregnant users get the pregnancy home screen
     if (profile?['role'] == 'pregnant') {
+      debugPrint('[SplashScreen] Routing to PregnancyShell, dueDate=${babyState.baby?.dueDate}');
       final baby = babyState.baby!;
       if (baby.dueDate != null) {
         await ref
