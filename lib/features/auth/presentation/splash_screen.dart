@@ -4,10 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/pregnancy_provider.dart';
 import '../../../core/services/supabase_service.dart';
 import 'login_screen.dart';
 import '../../../core/widgets/main_shell.dart';
 import '../../onboarding/presentation/baby_setup_screen.dart';
+import '../../pregnancy/presentation/pregnancy_shell.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -63,8 +65,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     await ref.read(babyProvider.notifier).loadBaby();
     if (!mounted) return;
 
-    final hasBaby = ref.read(babyProvider).hasBaby;
-    _go(hasBaby ? const MainShell() : const BabySetupScreen());
+    final babyState = ref.read(babyProvider);
+    if (!babyState.hasBaby) {
+      _go(const BabySetupScreen());
+      return;
+    }
+
+    // Pregnant users get the pregnancy home screen
+    if (profile?['role'] == 'pregnant') {
+      final baby = babyState.baby!;
+      if (baby.dueDate != null) {
+        await ref
+            .read(pregnancyProvider.notifier)
+            .loadFromDueDate(baby.dueDate!);
+      } else {
+        await ref.read(pregnancyProvider.notifier).loadWeek(1);
+      }
+      if (!mounted) return;
+      _go(const PregnancyShell());
+      return;
+    }
+
+    _go(const MainShell());
   }
 
   void _go(Widget screen) {
