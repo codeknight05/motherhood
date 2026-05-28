@@ -1,0 +1,43 @@
+-- Run this after creating the pregnancy_guidance table and adding size columns.
+-- Updates baby size comparison data for all 40 weeks.
+
+update public.pregnancy_guidance set baby_size_emoji='🌱', baby_size_object='Poppy seed',      baby_length_cm=0.1,  baby_weight_g=null  where week=1;
+update public.pregnancy_guidance set baby_size_emoji='🌱', baby_size_object='Sesame seed',     baby_length_cm=0.2,  baby_weight_g=null  where week=2;
+update public.pregnancy_guidance set baby_size_emoji='🫐', baby_size_object='Blueberry',       baby_length_cm=0.3,  baby_weight_g=null  where week=3;
+update public.pregnancy_guidance set baby_size_emoji='🫐', baby_size_object='Blueberry',       baby_length_cm=0.4,  baby_weight_g=null  where week=4;
+update public.pregnancy_guidance set baby_size_emoji='🍊', baby_size_object='Orange seed',     baby_length_cm=0.5,  baby_weight_g=null  where week=5;
+update public.pregnancy_guidance set baby_size_emoji='🫛', baby_size_object='Sweet pea',       baby_length_cm=0.6,  baby_weight_g=null  where week=6;
+update public.pregnancy_guidance set baby_size_emoji='🫐', baby_size_object='Blueberry',       baby_length_cm=1.0,  baby_weight_g=null  where week=7;
+update public.pregnancy_guidance set baby_size_emoji='🫁', baby_size_object='Kidney bean',     baby_length_cm=1.6,  baby_weight_g=1.0   where week=8;
+update public.pregnancy_guidance set baby_size_emoji='🍇', baby_size_object='Grape',           baby_length_cm=2.3,  baby_weight_g=2.0   where week=9;
+update public.pregnancy_guidance set baby_size_emoji='🍓', baby_size_object='Strawberry',      baby_length_cm=3.1,  baby_weight_g=4.0   where week=10;
+update public.pregnancy_guidance set baby_size_emoji='🍋', baby_size_object='Lime',            baby_length_cm=4.1,  baby_weight_g=7.0   where week=11;
+update public.pregnancy_guidance set baby_size_emoji='🍋', baby_size_object='Lemon',           baby_length_cm=5.4,  baby_weight_g=14.0  where week=12;
+update public.pregnancy_guidance set baby_size_emoji='🍑', baby_size_object='Peach',           baby_length_cm=7.4,  baby_weight_g=23.0  where week=13;
+update public.pregnancy_guidance set baby_size_emoji='🍋', baby_size_object='Lemon',           baby_length_cm=8.7,  baby_weight_g=43.0  where week=14;
+update public.pregnancy_guidance set baby_size_emoji='🍎', baby_size_object='Apple',           baby_length_cm=10.1, baby_weight_g=70.0  where week=15;
+update public.pregnancy_guidance set baby_size_emoji='🥑', baby_size_object='Avocado',         baby_length_cm=11.6, baby_weight_g=100.0 where week=16;
+update public.pregnancy_guidance set baby_size_emoji='🍐', baby_size_object='Pear',            baby_length_cm=13.0, baby_weight_g=140.0 where week=17;
+update public.pregnancy_guidance set baby_size_emoji='🫑', baby_size_object='Bell pepper',     baby_length_cm=14.2, baby_weight_g=190.0 where week=18;
+update public.pregnancy_guidance set baby_size_emoji='🥭', baby_size_object='Mango',           baby_length_cm=15.3, baby_weight_g=240.0 where week=19;
+update public.pregnancy_guidance set baby_size_emoji='🍌', baby_size_object='Banana',          baby_length_cm=16.4, baby_weight_g=300.0 where week=20;
+update public.pregnancy_guidance set baby_size_emoji='🥕', baby_size_object='Carrot',          baby_length_cm=26.7, baby_weight_g=360.0 where week=21;
+update public.pregnancy_guidance set baby_size_emoji='🌽', baby_size_object='Corn',            baby_length_cm=27.8, baby_weight_g=430.0 where week=22;
+update public.pregnancy_guidance set baby_size_emoji='🍆', baby_size_object='Eggplant',        baby_length_cm=28.9, baby_weight_g=500.0 where week=23;
+update public.pregnancy_guidance set baby_size_emoji='🌽', baby_size_object='Corn on the cob', baby_length_cm=30.0, baby_weight_g=600.0 where week=24;
+update public.pregnancy_guidance set baby_size_emoji='🥦', baby_size_object='Cauliflower',     baby_length_cm=34.6, baby_weight_g=660.0 where week=25;
+update public.pregnancy_guidance set baby_size_emoji='🥬', baby_size_object='Lettuce head',    baby_length_cm=35.6, baby_weight_g=760.0 where week=26;
+update public.pregnancy_guidance set baby_size_emoji='🥦', baby_size_object='Broccoli',        baby_length_cm=36.6, baby_weight_g=875.0 where week=27;
+update public.pregnancy_guidance set baby_size_emoji='🍆', baby_size_object='Large eggplant',  baby_length_cm=37.6, baby_weight_g=1005.0 where week=28;
+update public.pregnancy_guidance set baby_size_emoji='🎃', baby_size_object='Butternut squash',baby_length_cm=38.6, baby_weight_g=1153.0 where week=29;
+update public.pregnancy_guidance set baby_size_emoji='🥥', baby_size_object='Coconut',         baby_length_cm=39.9, baby_weight_g=1319.0 where week=30;
+update public.pregnancy_guidance set baby_size_emoji='🍍', baby_size_object='Pineapple',       baby_length_cm=41.1, baby_weight_g=1502.0 where week=31;
+update public.pregnancy_guidance set baby_size_emoji='🥦', baby_size_object='Large broccoli',  baby_length_cm=42.4, baby_weight_g=1702.0 where week=32;
+update public.pregnancy_guidance set baby_size_emoji='🍍', baby_size_object='Large pineapple', baby_length_cm=43.7, baby_weight_g=1918.0 where week=33;
+update public.pregnancy_guidance set baby_size_emoji='🎃', baby_size_object='Cantaloupe',      baby_length_cm=45.0, baby_weight_g=2146.0 where week=34;
+update public.pregnancy_guidance set baby_size_emoji='🥥', baby_size_object='Honeydew melon',  baby_length_cm=46.2, baby_weight_g=2383.0 where week=35;
+update public.pregnancy_guidance set baby_size_emoji='🥬', baby_size_object='Romaine lettuce', baby_length_cm=47.4, baby_weight_g=2622.0 where week=36;
+update public.pregnancy_guidance set baby_size_emoji='🍉', baby_size_object='Small watermelon',baby_length_cm=48.6, baby_weight_g=2859.0 where week=37;
+update public.pregnancy_guidance set baby_size_emoji='🎃', baby_size_object='Pumpkin',         baby_length_cm=49.8, baby_weight_g=3083.0 where week=38;
+update public.pregnancy_guidance set baby_size_emoji='🍉', baby_size_object='Watermelon',      baby_length_cm=50.7, baby_weight_g=3288.0 where week=39;
+update public.pregnancy_guidance set baby_size_emoji='🍉', baby_size_object='Large watermelon',baby_length_cm=51.2, baby_weight_g=3462.0 where week=40;

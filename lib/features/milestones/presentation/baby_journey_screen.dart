@@ -1,10 +1,11 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
@@ -291,19 +292,41 @@ class _MilestonesTabState extends ConsumerState<_MilestonesTab>
     );
   }
 
-  void _loadBand(int band, {bool forceRefresh = false}) {
-    final baby = ref.read(babyProvider).baby;
-    if (baby == null) return;
-    final current = ref.read(milestonesProvider);
-    if (!forceRefresh &&
-        current.guidance.isNotEmpty &&
-        current.selectedBandIndex == band) {
-      return;
-    }
-    ref
-        .read(milestonesProvider.notifier)
-        .loadMilestones(baby.id, baby.ageInMonths, bandIndex: band);
+  Future<void> _loadBand(
+  int band, {
+  bool forceRefresh = false,
+}) async {
+  final baby = ref.read(babyProvider).baby;
+
+  if (baby == null) return;
+
+  final current = ref.read(milestonesProvider);
+
+  if (!forceRefresh &&
+      current.guidance.isNotEmpty &&
+      current.selectedBandIndex == band) {
+    return;
   }
+
+  String role = 'parent';
+
+  try {
+    final user = SupabaseService.currentUser;
+
+    if (user != null) {
+      role = await SupabaseService.fetchUserRole(user.id);
+    }
+  } catch (e) {
+    debugPrint('Failed to fetch user role: $e');
+  }
+
+  await ref.read(milestonesProvider.notifier).loadMilestones(
+        baby.id,
+        baby.ageInMonths,
+        bandIndex: band,
+        audience: role,
+      );
+}
 
   void _selectBand(int band) {
     setState(() => _selectedBand = band);

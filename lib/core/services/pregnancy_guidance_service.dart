@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Safely converts a DB value to a plain String.
-/// Handles: String, List<dynamic> (JSON array → bullet lines), null.
+/// Handles: `String`, `List<dynamic>` (JSON array → bullet lines), null.
 String _asText(dynamic value) {
   if (value == null) return '';
   if (value is String) return value;

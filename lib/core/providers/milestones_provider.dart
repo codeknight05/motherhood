@@ -64,7 +64,10 @@ class MilestonesNotifier extends StateNotifier<MilestonesState> {
     String? audience,
   }) async {
     final band = bandIndex ?? ageBandFromMonths(ageInMonths);
-    final effectiveAudience = audience ?? state.audience;
+    final effectiveAudience =
+    (audience?.trim().isNotEmpty ?? false)
+        ? audience!.trim().toLowerCase()
+        : state.audience;
     state = state.copyWith(
       isLoading: true,
       error: null,
