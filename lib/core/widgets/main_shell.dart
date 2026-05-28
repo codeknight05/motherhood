@@ -9,7 +9,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../providers/baby_provider.dart';
 import '../providers/milestones_provider.dart';
+import '../providers/pregnancy_provider.dart';
 import '../services/supabase_service.dart';
+import '../../features/pregnancy/presentation/pregnancy_shell.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -20,21 +22,53 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _currentIndex = 0;
+  bool _roleChecked = false;
 
   @override
   void initState() {
     super.initState();
-    // Load baby data and milestones when shell mounts (covers returning users)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final babyState = ref.read(babyProvider);
-      if (!babyState.hasChecked) {
-        ref.read(babyProvider.notifier).loadBaby().then((_) {
-          _loadMilestonesForCurrentUser();
-        });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initShell());
+  }
+
+  Future<void> _initShell() async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+
+    // Load baby data
+    final babyState = ref.read(babyProvider);
+    if (!babyState.hasChecked) {
+      await ref.read(babyProvider.notifier).loadBaby();
+    }
+    if (!mounted) return;
+
+    // Check role — if pregnant, redirect to PregnancyShell
+    final profile = await SupabaseService.fetchProfile(user.id);
+    if (!mounted) return;
+
+    setState(() => _roleChecked = true);
+
+    if (profile?['role'] == 'pregnant') {
+      // Load pregnancy data then replace with PregnancyShell
+      final baby = ref.read(babyProvider).baby;
+      if (baby?.dueDate != null) {
+        await ref.read(pregnancyProvider.notifier).loadFromDueDate(baby!.dueDate!);
       } else {
-        _loadMilestonesForCurrentUser();
+        await ref.read(pregnancyProvider.notifier).loadWeek(1);
       }
-    });
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const PregnancyShell(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+      return;
+    }
+
+    // Parent role — load milestones
+    _loadMilestonesForCurrentUser();
   }
 
   Future<void> _loadMilestonesForCurrentUser() async {
@@ -46,8 +80,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     final audience = profile?['role'] as String? ?? 'parent';
     if (!mounted) return;
 
-    ref
-        .read(milestonesProvider.notifier)
+    ref.read(milestonesProvider.notifier)
         .loadMilestones(baby.id, baby.ageInMonths, audience: audience);
   }
 
@@ -61,6 +94,20 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Show a blank loading screen while we check the role
+    // This prevents the wrong shell from flashing for pregnant users
+    if (!_roleChecked) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFFFF0F3),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF9B59B6),
+            strokeWidth: 2.5,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: _buildBottomNav(),
