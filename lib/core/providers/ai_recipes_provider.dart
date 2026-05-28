@@ -148,7 +148,9 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
     final category = _parseCategory(categoryStr);
 
     return RecipeModel(
-      id: m['id'] as String? ?? 'ai_${DateTime.now().millisecondsSinceEpoch}',
+      id: m['id'] != null
+          ? 'ai_${m['id'].toString()}'
+          : 'ai_${DateTime.now().millisecondsSinceEpoch}',
       name: m['name'] as String? ?? 'AI Recipe',
       description: m['description'] as String? ?? '',
       imageUrl: '', // AI recipes use emoji placeholder
@@ -156,7 +158,7 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
       calories: (m['calories'] as num?)?.toInt() ?? 100,
       tag: m['tag'] as String? ?? 'Nutritious',
       benefit: m['benefit'] as String? ?? 'Healthy & delicious',
-      ageGroups: List<String>.from(m['ageGroups'] as List? ?? []),
+      ageGroups: (m['ageGroups'] as List? ?? []).map((e) => e.toString()).toList(),
       category: category,
       ingredients: ingredients,
       steps: steps,
