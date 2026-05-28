@@ -6,6 +6,8 @@ import '../../community/presentation/communities_list_screen.dart';
 import '../../learn/presentation/learn_screen.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/pregnancy_provider.dart';
 import 'pregnancy_home_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,6 +32,33 @@ class _PregnancyShellState extends ConsumerState<PregnancyShell> {
     CommunitiesListScreen(),
     LearnScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureDataLoaded());
+  }
+
+  Future<void> _ensureDataLoaded() async {
+    // Make sure baby is loaded
+    final babyState = ref.read(babyProvider);
+    if (!babyState.hasChecked) {
+      await ref.read(babyProvider.notifier).loadBaby();
+    }
+    if (!mounted) return;
+
+    // Trigger pregnancy week load if not already done
+    final baby = ref.read(babyProvider).baby;
+    final pgState = ref.read(pregnancyProvider);
+    if (baby != null && pgState.guidance == null && !pgState.isLoading) {
+      final notifier = ref.read(pregnancyProvider.notifier);
+      if (baby.dueDate != null) {
+        notifier.loadFromDueDate(baby.dueDate!);
+      } else {
+        notifier.loadWeek(1);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

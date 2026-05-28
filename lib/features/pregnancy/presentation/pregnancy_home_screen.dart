@@ -43,7 +43,8 @@ class _PregnancyHomeScreenState extends ConsumerState<PregnancyHomeScreen>
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCurrentWeek());
+    // Try loading immediately after first frame — baby may already be loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadIfNeeded());
   }
 
   @override
@@ -51,6 +52,13 @@ class _PregnancyHomeScreenState extends ConsumerState<PregnancyHomeScreen>
     _heroCtrl.dispose();
     _pulseCtrl.dispose();
     super.dispose();
+  }
+
+  void _loadIfNeeded() {
+    // Only load if guidance hasn't been fetched yet
+    final pgState = ref.read(pregnancyProvider);
+    if (pgState.guidance != null || pgState.isLoading) return;
+    _loadCurrentWeek();
   }
 
   void _loadCurrentWeek() {
@@ -78,6 +86,16 @@ class _PregnancyHomeScreenState extends ConsumerState<PregnancyHomeScreen>
     final pgState = ref.watch(pregnancyProvider);
     final baby = ref.watch(babyProvider).baby;
     final week = pgState.currentWeek;
+
+    // If baby data arrives after mount and guidance still not loaded, load now
+    ref.listen<BabyState>(babyProvider, (prev, next) {
+      if (next.baby != null && !next.isLoading) {
+        final pg = ref.read(pregnancyProvider);
+        if (pg.guidance == null && !pg.isLoading) {
+          _loadCurrentWeek();
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF5F7),
