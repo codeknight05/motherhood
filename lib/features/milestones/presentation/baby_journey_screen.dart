@@ -18,6 +18,7 @@ import '../../../models/baby_model.dart';
 import '../../../models/milestone_model.dart';
 import '../../../models/memory_model.dart';
 import '../../../models/milestone_library.dart';
+import '../../profile/presentation/profile_screen.dart';
 import 'milestone_guidance_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -113,7 +114,10 @@ class _BabyHeaderCard extends StatelessWidget {
           ),
         ),
         GestureDetector(
-          onTap: () {},
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
