@@ -183,29 +183,40 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 10),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(Icons.people_outline_rounded,
-                        size: 14, color: AppColors.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(
-                      memberCount > 0
-                          ? '${memberCount >= 1000 ? '${(memberCount / 1000).toStringAsFixed(1)}K' : memberCount} Members'
-                          : 'Be the first to join!',
-                      style: AppTextStyles.labelMedium,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.people_outline_rounded,
+                            size: 14, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          memberCount > 0
+                              ? '${memberCount >= 1000 ? '${(memberCount / 1000).toStringAsFixed(1)}K' : memberCount} Members'
+                              : 'Be the first to join!',
+                          style: AppTextStyles.labelMedium,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Container(
-                        width: 7, height: 7,
-                        decoration: const BoxDecoration(
-                          color: AppColors.accentGreen,
-                          shape: BoxShape.circle,
-                        )),
-                    const SizedBox(width: 4),
-                    Text('${_info.activeCount} active',
-                        style: AppTextStyles.labelSmall
-                            .copyWith(color: AppColors.accentGreen)),
-                    const Spacer(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                            width: 7, height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppColors.accentGreen,
+                              shape: BoxShape.circle,
+                            )),
+                        const SizedBox(width: 4),
+                        Text('${_info.activeCount} active',
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.accentGreen)),
+                      ],
+                    ),
                     GestureDetector(
                       onTap: () => ref
                           .read(communityProvider.notifier)

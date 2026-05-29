@@ -135,21 +135,56 @@ class CommunityService {
     int offset = 0,
   }) async {
     try {
+      // Fetch posts without the profile join (avoids FK schema cache issue)
       final res = await _client
           .from('community_posts')
-          .select('''
-            id, community_id, user_id, content, tag, is_pinned, created_at,
-            profiles!community_posts_user_id_fkey(full_name, avatar_url),
-            post_likes(user_id)
-          ''')
+          .select('id, community_id, user_id, content, tag, is_pinned, created_at, post_likes(user_id)')
           .eq('community_id', communityId)
           .order('is_pinned', ascending: false)
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      return (res as List)
-          .map((r) => CommunityPost.fromJson(r as Map<String, dynamic>, myUserId))
-          .toList();
+      final posts = (res as List).map((r) {
+        final row = r as Map<String, dynamic>;
+        return CommunityPost.fromJson(row, myUserId);
+      }).toList();
+
+      // Batch-fetch author names from profiles
+      final userIds = posts.map((p) => p.userId).toSet().toList();
+      if (userIds.isNotEmpty) {
+        try {
+          final profiles = await _client
+              .from('profiles')
+              .select('id, full_name, avatar_url')
+              .inFilter('id', userIds);
+          final profileMap = {
+            for (final p in (profiles as List))
+              (p as Map<String, dynamic>)['id'] as String: p,
+          };
+          return posts.map((post) {
+            final profile = profileMap[post.userId];
+            if (profile == null) return post;
+            return CommunityPost(
+              id: post.id,
+              communityId: post.communityId,
+              userId: post.userId,
+              authorName: profile['full_name'] as String? ?? 'Anonymous',
+              authorAvatarUrl: profile['avatar_url'] as String?,
+              content: post.content,
+              tag: post.tag,
+              isPinned: post.isPinned,
+              likeCount: post.likeCount,
+              commentCount: post.commentCount,
+              isLikedByMe: post.isLikedByMe,
+              createdAt: post.createdAt,
+            );
+          }).toList();
+        } catch (_) {
+          // Return posts without author names if profiles fetch fails
+          return posts;
+        }
+      }
+      return posts;
     } catch (e) {
       debugPrint('[CommunityService] fetchPosts error: $e');
       return [];
@@ -172,13 +207,36 @@ class CommunityService {
             'content': content.trim(),
             if (tag != null) 'tag': tag,
           })
-          .select('''
-            id, community_id, user_id, content, tag, is_pinned, created_at,
-            profiles!community_posts_user_id_fkey(full_name, avatar_url),
-            post_likes(user_id)
-          ''')
+          .select('id, community_id, user_id, content, tag, is_pinned, created_at, post_likes(user_id)')
           .single();
-      return CommunityPost.fromJson(res, userId);
+
+      final post = CommunityPost.fromJson(res, userId);
+
+      // Fetch author name
+      try {
+        final profile = await _client
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', userId)
+            .maybeSingle();
+        if (profile != null) {
+          return CommunityPost(
+            id: post.id,
+            communityId: post.communityId,
+            userId: post.userId,
+            authorName: profile['full_name'] as String? ?? 'Anonymous',
+            authorAvatarUrl: profile['avatar_url'] as String?,
+            content: post.content,
+            tag: post.tag,
+            isPinned: post.isPinned,
+            likeCount: post.likeCount,
+            commentCount: post.commentCount,
+            isLikedByMe: post.isLikedByMe,
+            createdAt: post.createdAt,
+          );
+        }
+      } catch (_) {}
+      return post;
     } catch (e) {
       debugPrint('[CommunityService] createPost error: $e');
       return null;
