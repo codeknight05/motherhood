@@ -43,7 +43,7 @@ class CommunityPost {
       id: json['id'] as String,
       communityId: json['community_id'] as String,
       userId: json['user_id'] as String,
-      authorName: profile?['full_name'] as String? ?? 'Anonymous',
+      authorName: profile?['full_name'] as String? ?? 'Community Member',
       authorAvatarUrl: profile?['avatar_url'] as String?,
       content: json['content'] as String,
       tag: json['tag'] as String?,
@@ -71,6 +71,34 @@ class CommunityService {
   CommunityService._();
 
   static final _client = Supabase.instance.client;
+
+  /// Resolves a display name from a profile row.
+  /// Priority: full_name → email prefix from auth → first 8 chars of userId
+  static String _displayName(Map<String, dynamic> profile, String userId) {
+    final fullName = profile['full_name'] as String?;
+    if (fullName != null && fullName.trim().isNotEmpty) return fullName.trim();
+
+    // Try to get email from auth user metadata
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null && user.id == userId) {
+      final email = user.email;
+      if (email != null && email.isNotEmpty) {
+        // Use the part before @ as display name, capitalize first letter
+        final prefix = email.split('@').first;
+        return prefix[0].toUpperCase() + prefix.substring(1);
+      }
+      // Try user metadata (Google sign-in stores name here)
+      final meta = user.userMetadata;
+      if (meta != null) {
+        final name = meta['full_name'] as String? ??
+            meta['name'] as String? ??
+            meta['display_name'] as String?;
+        if (name != null && name.isNotEmpty) return name;
+      }
+    }
+
+    return 'User ${userId.substring(0, 6)}';
+  }
 
   // ── Member counts ─────────────────────────────────────────────────────────
 
@@ -135,7 +163,6 @@ class CommunityService {
     int offset = 0,
   }) async {
     try {
-      // Fetch posts without the profile join (avoids FK schema cache issue)
       final res = await _client
           .from('community_posts')
           .select('id, community_id, user_id, content, tag, is_pinned, created_at, post_likes(user_id)')
@@ -168,7 +195,7 @@ class CommunityService {
               id: post.id,
               communityId: post.communityId,
               userId: post.userId,
-              authorName: profile['full_name'] as String? ?? 'Anonymous',
+              authorName: _displayName(profile, post.userId),
               authorAvatarUrl: profile['avatar_url'] as String?,
               content: post.content,
               tag: post.tag,
@@ -180,7 +207,6 @@ class CommunityService {
             );
           }).toList();
         } catch (_) {
-          // Return posts without author names if profiles fetch fails
           return posts;
         }
       }
@@ -224,7 +250,7 @@ class CommunityService {
             id: post.id,
             communityId: post.communityId,
             userId: post.userId,
-            authorName: profile['full_name'] as String? ?? 'Anonymous',
+            authorName: _displayName(profile, userId),
             authorAvatarUrl: profile['avatar_url'] as String?,
             content: post.content,
             tag: post.tag,
