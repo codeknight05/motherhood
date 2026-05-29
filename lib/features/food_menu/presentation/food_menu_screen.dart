@@ -213,7 +213,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                           borderRadius: BorderRadius.circular(AppConstants.radiusFull),
                         ),
                         child: const Text(
-                          'Gemini ✨',
+                          'Groq AI ✨',
                           style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                         ),
                       ),
