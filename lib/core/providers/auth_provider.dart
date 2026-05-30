@@ -67,7 +67,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> signUpWithEmail(String email, String password) async {
     state = const AuthState(status: AuthStatus.loading);
     try {
-      await SupabaseService.signUpWithEmail(email, password);
+      final response = await SupabaseService.signUpWithEmail(email, password);
+      // If session is null, email confirmation is required
+      if (response.session == null) {
+        state = const AuthState(
+          status: AuthStatus.error,
+          errorMessage: 'Check your email to confirm your account, then sign in.',
+        );
+        return false;
+      }
       state = const AuthState(status: AuthStatus.success);
       return true;
     } on AuthException catch (e) {
