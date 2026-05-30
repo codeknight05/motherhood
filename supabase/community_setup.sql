@@ -30,9 +30,13 @@ create table if not exists public.community_posts (
   user_id      uuid not null references auth.users(id) on delete cascade,
   content      text not null,
   tag          text,           -- 'Question', 'Win & Milestone', 'Rant & Rave', 'Resource', 'General'
+  image_url    text,
   is_pinned    boolean default false,
   created_at   timestamptz default now()
 );
+
+alter table public.community_posts
+  add column if not exists image_url text;
 
 -- 4. Post likes
 create table if not exists public.post_likes (
@@ -42,16 +46,27 @@ create table if not exists public.post_likes (
   unique(post_id, user_id)
 );
 
+-- 5. Replies to community posts
+create table if not exists public.community_post_replies (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.community_posts(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  content    text not null,
+  created_at timestamptz default now()
+);
+
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 create index if not exists idx_community_posts_community on public.community_posts(community_id, created_at desc);
 create index if not exists idx_community_members_user on public.community_members(user_id);
 create index if not exists idx_post_likes_post on public.post_likes(post_id);
+create index if not exists idx_community_post_replies_post on public.community_post_replies(post_id, created_at asc);
 
 -- ── RLS Policies ──────────────────────────────────────────────────────────────
 alter table public.communities enable row level security;
 alter table public.community_members enable row level security;
 alter table public.community_posts enable row level security;
 alter table public.post_likes enable row level security;
+alter table public.community_post_replies enable row level security;
 
 -- Communities: anyone can read
 create policy "communities_read" on public.communities for select using (true);
@@ -65,6 +80,11 @@ create policy "members_delete" on public.community_members for delete using (aut
 create policy "posts_read" on public.community_posts for select using (true);
 create policy "posts_insert" on public.community_posts for insert with check (auth.uid() = user_id);
 create policy "posts_delete" on public.community_posts for delete using (auth.uid() = user_id);
+
+-- Replies: anyone can read, authenticated users can insert/delete their own
+create policy "replies_read" on public.community_post_replies for select using (true);
+create policy "replies_insert" on public.community_post_replies for insert with check (auth.uid() = user_id);
+create policy "replies_delete" on public.community_post_replies for delete using (auth.uid() = user_id);
 
 -- Likes: anyone can read, authenticated users can insert/delete their own
 create policy "likes_read" on public.post_likes for select using (true);

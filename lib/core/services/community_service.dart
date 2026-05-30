@@ -17,6 +17,7 @@ class CommunityPost {
   final int commentCount;
   final bool isLikedByMe;
   final DateTime createdAt;
+  final List<CommunityReply> replies;
 
   const CommunityPost({
     required this.id,
@@ -32,6 +33,7 @@ class CommunityPost {
     this.commentCount = 0,
     this.isLikedByMe = false,
     required this.createdAt,
+    this.replies = const [],
   });
 
   factory CommunityPost.fromJson(Map<String, dynamic> json, String? myUserId) {
@@ -54,6 +56,78 @@ class CommunityPost {
       likeCount: likeCount,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       isLikedByMe: isLiked,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  CommunityPost copyWith({
+    String? authorName,
+    String? authorAvatarUrl,
+    String? content,
+    String? tag,
+    String? imageUrl,
+    bool? isPinned,
+    int? likeCount,
+    int? commentCount,
+    bool? isLikedByMe,
+    List<CommunityReply>? replies,
+  }) {
+    return CommunityPost(
+      id: id,
+      communityId: communityId,
+      userId: userId,
+      authorName: authorName ?? this.authorName,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      content: content ?? this.content,
+      tag: tag ?? this.tag,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isPinned: isPinned ?? this.isPinned,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+      createdAt: createdAt,
+      replies: replies ?? this.replies,
+    );
+  }
+
+  String get timeAgo {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${(diff.inDays / 7).floor()}w ago';
+  }
+}
+
+class CommunityReply {
+  final String id;
+  final String postId;
+  final String userId;
+  final String authorName;
+  final String? authorAvatarUrl;
+  final String content;
+  final DateTime createdAt;
+
+  const CommunityReply({
+    required this.id,
+    required this.postId,
+    required this.userId,
+    required this.authorName,
+    this.authorAvatarUrl,
+    required this.content,
+    required this.createdAt,
+  });
+
+  factory CommunityReply.fromJson(Map<String, dynamic> json) {
+    final profile = json['profiles'] as Map<String, dynamic>?;
+    return CommunityReply(
+      id: json['id'] as String,
+      postId: json['post_id'] as String,
+      userId: json['user_id'] as String,
+      authorName: profile?['full_name'] as String? ?? 'Community Member',
+      authorAvatarUrl: profile?['avatar_url'] as String?,
+      content: json['content'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -181,6 +255,7 @@ class CommunityService {
 
       // Batch-fetch author names from profiles
       final userIds = posts.map((p) => p.userId).toSet().toList();
+      var hydratedPosts = posts;
       if (userIds.isNotEmpty) {
         try {
           final profiles = await _client
@@ -191,32 +266,82 @@ class CommunityService {
             for (final p in (profiles as List))
               (p as Map<String, dynamic>)['id'] as String: p,
           };
-          return posts.map((post) {
+          hydratedPosts = posts.map((post) {
             final profile = profileMap[post.userId];
             if (profile == null) return post;
-            return CommunityPost(
-              id: post.id,
-              communityId: post.communityId,
-              userId: post.userId,
+            return post.copyWith(
               authorName: _displayName(profile, post.userId),
               authorAvatarUrl: profile['avatar_url'] as String?,
-              content: post.content,
-              tag: post.tag,
-              isPinned: post.isPinned,
-              likeCount: post.likeCount,
-              commentCount: post.commentCount,
-              isLikedByMe: post.isLikedByMe,
-              createdAt: post.createdAt,
             );
           }).toList();
         } catch (_) {
-          return posts;
+          hydratedPosts = posts;
         }
       }
-      return posts;
+      return _withReplies(hydratedPosts);
     } catch (e) {
       debugPrint('[CommunityService] fetchPosts error: $e');
       return [];
+    }
+  }
+
+  static Future<List<CommunityPost>> _withReplies(
+    List<CommunityPost> posts,
+  ) async {
+    if (posts.isEmpty) return posts;
+
+    try {
+      final postIds = posts.map((p) => p.id).toList();
+      final res = await _client
+          .from('community_post_replies')
+          .select('id, post_id, user_id, content, created_at')
+          .inFilter('post_id', postIds)
+          .order('created_at', ascending: true);
+
+      final replies = (res as List)
+          .map((r) => CommunityReply.fromJson(r as Map<String, dynamic>))
+          .toList();
+
+      final userIds = replies.map((r) => r.userId).toSet().toList();
+      final profileMap = <String, Map<String, dynamic>>{};
+      if (userIds.isNotEmpty) {
+        final profiles = await _client
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .inFilter('id', userIds);
+        for (final p in profiles as List) {
+          final profile = p as Map<String, dynamic>;
+          profileMap[profile['id'] as String] = profile;
+        }
+      }
+
+      final byPost = <String, List<CommunityReply>>{};
+      for (final reply in replies) {
+        final profile = profileMap[reply.userId];
+        final hydrated = profile == null
+            ? reply
+            : CommunityReply(
+                id: reply.id,
+                postId: reply.postId,
+                userId: reply.userId,
+                authorName: _displayName(profile, reply.userId),
+                authorAvatarUrl: profile['avatar_url'] as String?,
+                content: reply.content,
+                createdAt: reply.createdAt,
+              );
+        byPost.putIfAbsent(reply.postId, () => []).add(hydrated);
+      }
+
+      return posts.map((post) {
+        final postReplies = byPost[post.id] ?? const <CommunityReply>[];
+        return post.copyWith(
+          replies: postReplies,
+          commentCount: postReplies.length,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('[CommunityService] fetchReplies error: $e');
+      return posts;
     }
   }
 
@@ -251,20 +376,9 @@ class CommunityService {
             .eq('id', userId)
             .maybeSingle();
         if (profile != null) {
-          return CommunityPost(
-            id: post.id,
-            communityId: post.communityId,
-            userId: post.userId,
+          return post.copyWith(
             authorName: _displayName(profile, userId),
             authorAvatarUrl: profile['avatar_url'] as String?,
-            content: post.content,
-            tag: post.tag,
-            imageUrl: post.imageUrl,
-            isPinned: post.isPinned,
-            likeCount: post.likeCount,
-            commentCount: post.commentCount,
-            isLikedByMe: post.isLikedByMe,
-            createdAt: post.createdAt,
           );
         }
       } catch (_) {}
@@ -278,6 +392,50 @@ class CommunityService {
   /// Delete a post (only the author can delete).
   static Future<void> deletePost(String postId) async {
     await _client.from('community_posts').delete().eq('id', postId);
+  }
+
+  /// Reply to a post.
+  static Future<CommunityReply?> createReply({
+    required String postId,
+    required String userId,
+    required String content,
+  }) async {
+    try {
+      final res = await _client
+          .from('community_post_replies')
+          .insert({
+            'post_id': postId,
+            'user_id': userId,
+            'content': content.trim(),
+          })
+          .select('id, post_id, user_id, content, created_at')
+          .single();
+
+      final reply = CommunityReply.fromJson(res);
+
+      try {
+        final profile = await _client
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', userId)
+            .maybeSingle();
+        if (profile != null) {
+          return CommunityReply(
+            id: reply.id,
+            postId: reply.postId,
+            userId: reply.userId,
+            authorName: _displayName(profile, userId),
+            authorAvatarUrl: profile['avatar_url'] as String?,
+            content: reply.content,
+            createdAt: reply.createdAt,
+          );
+        }
+      } catch (_) {}
+      return reply;
+    } catch (e) {
+      debugPrint('[CommunityService] createReply error: $e');
+      return null;
+    }
   }
 
   // ── Likes ─────────────────────────────────────────────────────────────────

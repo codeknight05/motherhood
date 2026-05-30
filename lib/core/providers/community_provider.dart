@@ -185,19 +185,9 @@ class PostsNotifier extends StateNotifier<PostsState> {
     final post = state.posts[idx];
     // Optimistic update
     final updated = List<CommunityPost>.from(state.posts);
-    updated[idx] = CommunityPost(
-      id: post.id,
-      communityId: post.communityId,
-      userId: post.userId,
-      authorName: post.authorName,
-      authorAvatarUrl: post.authorAvatarUrl,
-      content: post.content,
-      tag: post.tag,
-      isPinned: post.isPinned,
+    updated[idx] = post.copyWith(
       likeCount: post.isLikedByMe ? post.likeCount - 1 : post.likeCount + 1,
-      commentCount: post.commentCount,
       isLikedByMe: !post.isLikedByMe,
-      createdAt: post.createdAt,
     );
     state = state.copyWith(posts: updated);
 
@@ -206,6 +196,34 @@ class PostsNotifier extends StateNotifier<PostsState> {
       userId: user.id,
       currentlyLiked: post.isLikedByMe,
     );
+  }
+
+  Future<bool> createReply({
+    required String postId,
+    required String content,
+  }) async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return false;
+
+    final idx = state.posts.indexWhere((p) => p.id == postId);
+    if (idx == -1) return false;
+
+    final reply = await CommunityService.createReply(
+      postId: postId,
+      userId: user.id,
+      content: content,
+    );
+    if (reply == null) return false;
+
+    final updated = List<CommunityPost>.from(state.posts);
+    final post = updated[idx];
+    final replies = [...post.replies, reply];
+    updated[idx] = post.copyWith(
+      replies: replies,
+      commentCount: replies.length,
+    );
+    state = state.copyWith(posts: updated);
+    return true;
   }
 
   Future<void> deletePost(String postId) async {

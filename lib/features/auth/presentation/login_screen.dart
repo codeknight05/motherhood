@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Session;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
@@ -22,9 +23,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  ProviderSubscription<AsyncValue<Session?>>? _sessionSubscription;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isSignUp = false;
+  bool _isNavigatingAfterAuth = false;
 
   @override
   void initState() {
@@ -34,13 +37,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _listenForAuthChange() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.listenManual(sessionProvider, (previous, next) {
-        next.whenData((session) async {
-          if (session != null && mounted) {
-            await _navigateAfterAuth();
-          }
-        });
+    _sessionSubscription = ref.listenManual(sessionProvider, (previous, next) {
+      next.whenData((session) async {
+        if (session != null && mounted) {
+          await _navigateAfterAuth();
+        }
       });
     });
   }
@@ -50,36 +51,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _sessionSubscription?.close();
     super.dispose();
   }
 
   Future<void> _navigateAfterAuth() async {
+    if (_isNavigatingAfterAuth) return;
+    _isNavigatingAfterAuth = true;
+
     // Upsert profile with name from auth metadata (Google name, email, etc.)
-    final user = ref.read(sessionProvider).value?.user;
-    if (user != null) {
-      final meta = user.userMetadata ?? {};
-      final name = meta['full_name'] as String? ??
-          meta['name'] as String? ??
-          meta['display_name'] as String?;
-      final avatar = meta['avatar_url'] as String? ??
-          meta['picture'] as String?;
-      // Only upsert if we have something useful
-      if (name != null || avatar != null) {
-        try {
-          await SupabaseService.upsertProfile(
-            userId: user.id,
-            fullName: name,
-            avatarUrl: avatar,
-          );
-        } catch (_) {}
-      }
+    final user = SupabaseService.currentUser;
+    if (user == null) {
+      _isNavigatingAfterAuth = false;
+      return;
+    }
+
+    final meta = user.userMetadata ?? {};
+    final name = meta['full_name'] as String? ??
+        meta['name'] as String? ??
+        meta['display_name'] as String?;
+    final avatar = meta['avatar_url'] as String? ??
+        meta['picture'] as String?;
+    // Only upsert if we have something useful
+    if (name != null || avatar != null) {
+      try {
+        await SupabaseService.upsertProfile(
+          userId: user.id,
+          fullName: name,
+          avatarUrl: avatar,
+        );
+      } catch (_) {}
     }
 
     await ref.read(babyProvider.notifier).loadBaby();
     if (!mounted) return;
     final hasBaby = ref.read(babyProvider).hasBaby;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => hasBaby ? const MainShell() : const BabySetupScreen()),
+      MaterialPageRoute(
+        builder: (_) => hasBaby ? const MainShell() : const BabySetupScreen(),
+      ),
       (_) => false,
     );
   }
