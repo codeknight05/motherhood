@@ -120,7 +120,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                   borderRadius: BorderRadius.circular(AppConstants.radiusFull),
                 ),
                 child: const Text(
-                  'Powered by Gemini',
+                  'Powered by Groq AI',
                   style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -163,7 +163,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Gemini creates fresh, nutritious recipes tailored to ${baby.name}\'s age every time you tap Generate.',
+                  'Groq AI creates fresh, nutritious recipes tailored to ${baby.name}\'s age every time you tap Generate.',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: Colors.white.withValues(alpha: 0.9),
                   ),
@@ -219,7 +219,10 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                 padding: EdgeInsets.only(right: i < _themes.length - 1 ? AppConstants.paddingS : 0),
                 child: GestureDetector(
                   onTap: () {
-                    setState(() => _selectedTheme = label == 'Surprise Me' ? null : label);
+                    final newTheme = label == 'Surprise Me' ? null : label;
+                    setState(() => _selectedTheme = newTheme);
+                    // Immediately regenerate with the selected theme
+                    _generate(theme: newTheme);
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
@@ -279,7 +282,9 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
               ),
               const SizedBox(height: AppConstants.paddingL),
               Text(
-                'Gemini is cooking up recipes... 🍳',
+                _selectedTheme != null
+                    ? 'Generating $_selectedTheme recipes... 🍳'
+                    : 'Groq AI is cooking up recipes... 🍳',
                 style: AppTextStyles.headlineSmall.copyWith(color: AppColors.primary),
                 textAlign: TextAlign.center,
               ),

@@ -77,7 +77,15 @@ class SupabaseService {
         .maybeSingle();
     return res;
   }
-
+  ///Fetch User Role for the current user.
+  static Future<String> fetchUserRole(String userId) async {
+    final res = await client
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    return (res?['role'] as String?) ?? 'parent';
+  }
   /// Insert a new baby profile.
   static Future<Map<String, dynamic>> createBaby({
     required String userId,

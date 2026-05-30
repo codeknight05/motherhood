@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/pregnancy_provider.dart';
 import '../../../core/services/supabase_service.dart';
 import 'login_screen.dart';
 import '../../../core/widgets/main_shell.dart';
 import '../../onboarding/presentation/baby_setup_screen.dart';
+import '../../pregnancy/presentation/pregnancy_shell.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -55,6 +56,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final profile = await SupabaseService.fetchProfile(session.user.id);
     if (!mounted) return;
 
+    debugPrint('[SplashScreen] role=${profile?['role']}, userId=${session.user.id}');
+
     if (profile?['role'] == 'family') {
       _go(const MainShell());
       return;
@@ -63,8 +66,29 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     await ref.read(babyProvider.notifier).loadBaby();
     if (!mounted) return;
 
-    final hasBaby = ref.read(babyProvider).hasBaby;
-    _go(hasBaby ? const MainShell() : const BabySetupScreen());
+    final babyState = ref.read(babyProvider);
+    if (!babyState.hasBaby) {
+      _go(const BabySetupScreen());
+      return;
+    }
+
+    // Pregnant users get the pregnancy home screen
+    if (profile?['role'] == 'pregnant') {
+      debugPrint('[SplashScreen] Routing to PregnancyShell, dueDate=${babyState.baby?.dueDate}');
+      final baby = babyState.baby!;
+      if (baby.dueDate != null) {
+        await ref
+            .read(pregnancyProvider.notifier)
+            .loadFromDueDate(baby.dueDate!);
+      } else {
+        await ref.read(pregnancyProvider.notifier).loadWeek(1);
+      }
+      if (!mounted) return;
+      _go(const PregnancyShell());
+      return;
+    }
+
+    _go(const MainShell());
   }
 
   void _go(Widget screen) {
@@ -96,7 +120,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFFFFF0F3), // warm cream (matches icon bg)
+              Color(0xFFFFD6E0), // soft blush pink
+              Color(0xFFE8D5F5), // light lavender (matches icon purple)
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
         child: SafeArea(
           child: Center(
             child: FadeTransition(
@@ -106,38 +140,64 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // App icon
                     Container(
-                      width: 90,
-                      height: 90,
+                      width: 110,
+                      height: 110,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFB57BEE).withValues(alpha: 0.25),
+                            blurRadius: 30,
+                            spreadRadius: 4,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                      child: const Center(
-                        child: Text('💗', style: TextStyle(fontSize: 44)),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(28),
+                        child: Image.asset(
+                          'assets/images/app_icon.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF9B59B6), Color(0xFFFF8FAB)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: const Center(
+                              child: Text('💗', style: TextStyle(fontSize: 52)),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     Text(
                       'MotherHood',
                       style: AppTextStyles.displayLarge.copyWith(
-                        color: Colors.white,
+                        color: const Color(0xFF6B2D8B),
                         fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       'Your parenting companion',
                       style: AppTextStyles.bodyLarge.copyWith(
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: const Color(0xFF9B6BB5),
                       ),
                     ),
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 64),
                     SizedBox(
                       width: 28,
                       height: 28,
                       child: CircularProgressIndicator(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: const Color(0xFF9B59B6).withValues(alpha: 0.6),
                         strokeWidth: 2.5,
                       ),
                     ),

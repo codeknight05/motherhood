@@ -3,13 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'secrets.dart';
 
-/// Gemini REST API service — calls v1 endpoint directly.
-/// Avoids the deprecated google_generative_ai SDK which uses v1beta.
+/// AI Recipe Service — uses Groq (free tier: 30 RPM, 14,400 RPD).
+/// Model: llama-3.3-70b-versatile — excellent at structured JSON output.
+/// Groq API is OpenAI-compatible, extremely fast (~300 tokens/sec).
 class GeminiService {
   GeminiService._();
 
-  static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  static const String _groqUrl =
+      'https://api.groq.com/openai/v1/chat/completions';
+  static const String _model = 'llama-3.3-70b-versatile';
 
   /// Generate [count] AI recipes for a baby of [ageInMonths].
   static Future<List<Map<String, dynamic>>> generateRecipes({
@@ -20,13 +22,18 @@ class GeminiService {
     final ageLabel = _ageLabel(ageInMonths);
     final focusLine = focus != null ? 'Focus theme: $focus.' : '';
 
-    final prompt = '''
-You are a certified paediatric nutritionist. Generate $count innovative, nutritious, and delicious baby food recipes for a $ageLabel old baby ($ageInMonths months).
+    final systemPrompt =
+        'You are a certified paediatric nutritionist. '
+        'You always respond with valid JSON only — no markdown, no explanation, no code fences. '
+        'Just the raw JSON array starting with [ and ending with ].';
+
+    final userPrompt = '''
+Generate $count innovative, nutritious, and delicious baby food recipes for a $ageLabel old baby ($ageInMonths months).
 $focusLine
 
-Each recipe must be age-appropriate, made with easily available Indian ingredients, nutritious and tasty.
+Each recipe must be age-appropriate, made with easily available Indian ingredients.
 
-Return ONLY a valid JSON array with exactly $count objects. No markdown, no explanation, no code fences. Just the raw JSON array starting with [ and ending with ].
+Return ONLY a valid JSON array with exactly $count objects. No markdown, no explanation, no code fences.
 
 Each object must have exactly these fields:
 {
@@ -51,58 +58,57 @@ Each object must have exactly these fields:
 category must be one of: breakfast, midMorning, lunch, eveningSnack, dinner, bedtime
 ''';
 
-    final url = Uri.parse('$_baseUrl?key=${Secrets.geminiApiKey}');
-
+    final url = Uri.parse(_groqUrl);
     final body = jsonEncode({
-      'contents': [
-        {
-          'parts': [
-            {'text': prompt}
-          ]
-        }
+      'model': _model,
+      'messages': [
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': userPrompt},
       ],
-      'generationConfig': {
-        'temperature': 0.7,
-        'maxOutputTokens': 4096,
-      },
+      'temperature': 0.7,
+      'max_tokens': 4096,
+      // Ask Groq for JSON output mode
+      'response_format': {'type': 'json_object'},
     });
 
-    debugPrint('[Gemini] POST $url');
-    debugPrint('[Gemini] Requesting $count recipes for $ageInMonths months, focus: $focus');
+    debugPrint('[GroqAI] Requesting $count recipes for $ageInMonths months');
 
     try {
       final response = await http
           .post(
             url,
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${Secrets.groqApiKey}',
+            },
             body: body,
           )
           .timeout(const Duration(seconds: 45));
 
-      debugPrint('[Gemini] HTTP status: ${response.statusCode}');
+      debugPrint('[GroqAI] HTTP status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
-        final errorBody = response.body.length > 300
-            ? response.body.substring(0, 300)
+        final errorBody = response.body.length > 400
+            ? response.body.substring(0, 400)
             : response.body;
-        debugPrint('[Gemini] Error body: $errorBody');
-        throw Exception('Gemini API error ${response.statusCode}: $errorBody');
+        debugPrint('[GroqAI] Error body: $errorBody');
+        throw Exception('Groq API error ${response.statusCode}: $errorBody');
       }
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final candidates = decoded['candidates'] as List<dynamic>?;
-      if (candidates == null || candidates.isEmpty) {
-        throw Exception('No candidates in Gemini response');
+      final choices = decoded['choices'] as List<dynamic>?;
+      if (choices == null || choices.isEmpty) {
+        throw Exception('No choices in Groq response');
       }
 
-      final content = candidates[0]['content'] as Map<String, dynamic>;
-      final parts = content['parts'] as List<dynamic>;
-      final text = (parts[0]['text'] as String).trim();
+      final message = choices[0]['message'] as Map<String, dynamic>;
+      String text = (message['content'] as String).trim();
 
-      debugPrint('[Gemini] Response length: ${text.length}');
-      debugPrint('[Gemini] First 200 chars: ${text.substring(0, text.length.clamp(0, 200))}');
+      debugPrint('[GroqAI] Response length: ${text.length}');
+      debugPrint('[GroqAI] First 200 chars: ${text.substring(0, text.length.clamp(0, 200))}');
 
-      // Extract JSON array — strip any accidental markdown fences
+      // json_object mode wraps in an object — unwrap if needed
+      // e.g. {"recipes": [...]} or just [...]
       String cleaned = text;
       if (cleaned.contains('```')) {
         cleaned = cleaned
@@ -111,20 +117,32 @@ category must be one of: breakfast, midMorning, lunch, eveningSnack, dinner, bed
             .trim();
       }
 
+      // Try to find a JSON array first
       final startIdx = cleaned.indexOf('[');
       final endIdx = cleaned.lastIndexOf(']');
-      if (startIdx == -1 || endIdx == -1 || endIdx <= startIdx) {
-        debugPrint('[Gemini] Could not find JSON array. Raw: $cleaned');
-        throw Exception('Response did not contain a JSON array');
+
+      if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
+        // Direct array
+        cleaned = cleaned.substring(startIdx, endIdx + 1);
+      } else {
+        // json_object mode — look for a key containing the array
+        final obj = jsonDecode(cleaned) as Map<String, dynamic>;
+        final arrayKey = obj.keys.firstWhere(
+          (k) => obj[k] is List,
+          orElse: () => '',
+        );
+        if (arrayKey.isEmpty) {
+          throw Exception('Could not find recipe array in response: $cleaned');
+        }
+        return (obj[arrayKey] as List).cast<Map<String, dynamic>>();
       }
-      cleaned = cleaned.substring(startIdx, endIdx + 1);
 
       final list = jsonDecode(cleaned) as List<dynamic>;
-      debugPrint('[Gemini] Successfully parsed ${list.length} recipes');
+      debugPrint('[GroqAI] Successfully parsed ${list.length} recipes');
       return list.cast<Map<String, dynamic>>();
     } catch (e, stack) {
-      debugPrint('[Gemini] ERROR: $e');
-      debugPrint('[Gemini] Stack: $stack');
+      debugPrint('[GroqAI] ERROR: $e');
+      debugPrint('[GroqAI] Stack: $stack');
       rethrow;
     }
   }

@@ -1,113 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/home/presentation/home_screen.dart';
-import '../../features/milestones/presentation/baby_journey_screen.dart';
-import '../../features/food_menu/presentation/food_menu_screen.dart';
-import '../../features/community/presentation/communities_list_screen.dart';
-import '../../features/learn/presentation/learn_screen.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
-import '../providers/baby_provider.dart';
-import '../providers/milestones_provider.dart';
-import '../providers/pregnancy_provider.dart';
-import '../services/supabase_service.dart';
-import '../../features/pregnancy/presentation/pregnancy_shell.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../food_menu/presentation/food_menu_screen.dart';
+import '../../community/presentation/communities_list_screen.dart';
+import '../../learn/presentation/learn_screen.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/pregnancy_provider.dart';
+import 'pregnancy_home_screen.dart';
 
-class MainShell extends ConsumerStatefulWidget {
-  const MainShell({super.key});
+// ═══════════════════════════════════════════════════════════════════════════
+// Pregnancy Shell — bottom nav for pregnant users.
+// Replaces "Milestones" with "Journey" (pregnancy week screen).
+// ═══════════════════════════════════════════════════════════════════════════
+
+class PregnancyShell extends ConsumerStatefulWidget {
+  const PregnancyShell({super.key});
 
   @override
-  ConsumerState<MainShell> createState() => _MainShellState();
+  ConsumerState<PregnancyShell> createState() => _PregnancyShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _PregnancyShellState extends ConsumerState<PregnancyShell> {
   int _currentIndex = 0;
-  bool _roleChecked = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initShell());
-  }
-
-  Future<void> _initShell() async {
-    final user = SupabaseService.currentUser;
-    if (user == null) return;
-
-    // Load baby data
-    final babyState = ref.read(babyProvider);
-    if (!babyState.hasChecked) {
-      await ref.read(babyProvider.notifier).loadBaby();
-    }
-    if (!mounted) return;
-
-    // Check role — if pregnant, redirect to PregnancyShell
-    final profile = await SupabaseService.fetchProfile(user.id);
-    if (!mounted) return;
-
-    setState(() => _roleChecked = true);
-
-    if (profile?['role'] == 'pregnant') {
-      // Load pregnancy data then replace with PregnancyShell
-      final baby = ref.read(babyProvider).baby;
-      if (baby?.dueDate != null) {
-        await ref.read(pregnancyProvider.notifier).loadFromDueDate(baby!.dueDate!);
-      } else {
-        await ref.read(pregnancyProvider.notifier).loadWeek(1);
-      }
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const PregnancyShell(),
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
-      return;
-    }
-
-    // Parent role — load milestones
-    _loadMilestonesForCurrentUser();
-  }
-
-  Future<void> _loadMilestonesForCurrentUser() async {
-    final user = SupabaseService.currentUser;
-    final baby = ref.read(babyProvider).baby;
-    if (user == null || baby == null) return;
-
-    final profile = await SupabaseService.fetchProfile(user.id);
-    final audience = profile?['role'] as String? ?? 'parent';
-    if (!mounted) return;
-
-    ref.read(milestonesProvider.notifier)
-        .loadMilestones(baby.id, baby.ageInMonths, audience: audience);
-  }
 
   final List<Widget> _screens = const [
-    HomeScreen(),
-    MilestonesScreen(),
+    HomeScreen(role: 'pregnant'),
+    PregnancyHomeScreen(),
     FoodMenuScreen(),
     CommunitiesListScreen(),
     LearnScreen(),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    // Show a blank loading screen while we check the role
-    // This prevents the wrong shell from flashing for pregnant users
-    if (!_roleChecked) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFF0F3),
-        body: Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF9B59B6),
-            strokeWidth: 2.5,
-          ),
-        ),
-      );
-    }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureDataLoaded());
+  }
 
+  Future<void> _ensureDataLoaded() async {
+    // Make sure baby is loaded
+    final babyState = ref.read(babyProvider);
+    if (!babyState.hasChecked) {
+      await ref.read(babyProvider.notifier).loadBaby();
+    }
+    if (!mounted) return;
+
+    // Trigger pregnancy week load if not already done
+    final baby = ref.read(babyProvider).baby;
+    final pgState = ref.read(pregnancyProvider);
+    if (baby != null && pgState.guidance == null && !pgState.isLoading) {
+      final notifier = ref.read(pregnancyProvider.notifier);
+      if (baby.dueDate != null) {
+        notifier.loadFromDueDate(baby.dueDate!);
+      } else {
+        notifier.loadWeek(1);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: _buildBottomNav(),
@@ -138,8 +92,8 @@ class _MainShellState extends ConsumerState<MainShell> {
                 onTap: () => setState(() => _currentIndex = 0),
               ),
               _NavItem(
-                icon: Icons.directions_walk_rounded,
-                label: 'Milestones',
+                icon: Icons.favorite_rounded,
+                label: 'Journey',
                 isSelected: _currentIndex == 1,
                 onTap: () => setState(() => _currentIndex = 1),
               ),

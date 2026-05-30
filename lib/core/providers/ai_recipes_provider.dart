@@ -102,9 +102,9 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
         // Final failure — show user-friendly error
         String userMsg;
         if (isRateLimit) {
-          userMsg = 'API rate limit reached. Please wait a minute and try again.\n\nThe free Gemini tier allows 15 requests per minute.';
-        } else if (msg.contains('API_KEY') || msg.contains('api key')) {
-          userMsg = 'Invalid API key. Please check your Gemini API key.';
+          userMsg = 'Rate limit reached. Please wait a moment and try again.\n\nGroq free tier allows 30 requests per minute.';
+        } else if (msg.contains('API_KEY') || msg.contains('api key') || msg.contains('401') || msg.contains('invalid_api_key')) {
+          userMsg = 'Invalid API key. Please check your Groq API key in secrets.dart.\n\nGet a free key at console.groq.com';
         } else if (msg.contains('TimeoutException') || msg.contains('timeout')) {
           userMsg = 'Request timed out. Check your internet connection and try again.';
         } else if (msg.contains('SocketException') || msg.contains('network')) {
@@ -148,7 +148,9 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
     final category = _parseCategory(categoryStr);
 
     return RecipeModel(
-      id: m['id'] as String? ?? 'ai_${DateTime.now().millisecondsSinceEpoch}',
+      id: m['id'] != null
+          ? 'ai_${m['id'].toString()}'
+          : 'ai_${DateTime.now().millisecondsSinceEpoch}',
       name: m['name'] as String? ?? 'AI Recipe',
       description: m['description'] as String? ?? '',
       imageUrl: '', // AI recipes use emoji placeholder
@@ -156,7 +158,7 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
       calories: (m['calories'] as num?)?.toInt() ?? 100,
       tag: m['tag'] as String? ?? 'Nutritious',
       benefit: m['benefit'] as String? ?? 'Healthy & delicious',
-      ageGroups: List<String>.from(m['ageGroups'] as List? ?? []),
+      ageGroups: (m['ageGroups'] as List? ?? []).map((e) => e.toString()).toList(),
       category: category,
       ingredients: ingredients,
       steps: steps,

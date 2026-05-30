@@ -6,6 +6,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/widgets/main_shell.dart';
 import '../../onboarding/presentation/baby_setup_screen.dart';
 
@@ -53,6 +54,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _navigateAfterAuth() async {
+    // Upsert profile with name from auth metadata (Google name, email, etc.)
+    final user = ref.read(sessionProvider).value?.user;
+    if (user != null) {
+      final meta = user.userMetadata ?? {};
+      final name = meta['full_name'] as String? ??
+          meta['name'] as String? ??
+          meta['display_name'] as String?;
+      final avatar = meta['avatar_url'] as String? ??
+          meta['picture'] as String?;
+      // Only upsert if we have something useful
+      if (name != null || avatar != null) {
+        try {
+          await SupabaseService.upsertProfile(
+            userId: user.id,
+            fullName: name,
+            avatarUrl: avatar,
+          );
+        } catch (_) {}
+      }
+    }
+
     await ref.read(babyProvider.notifier).loadBaby();
     if (!mounted) return;
     final hasBaby = ref.read(babyProvider).hasBaby;

@@ -57,3 +57,13 @@ ios/Pods/
 secrets.dart
 
 supabase/.temp/
+
+# Loose files in root that shouldn't be tracked
+playstore-Oauth.json
+release_version.json
+lib_structure.txt
+structure.txt
+supabase_structure.txt
+"app icon.png"
+baby_not_yet_born.png
+baby_not_yet_born_cuter.png

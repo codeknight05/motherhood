@@ -1,155 +1,44 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/community_provider.dart';
+import '../../../core/services/community_service.dart';
+import '../../../core/services/cloudinary_service.dart';
+import '../../../core/services/supabase_service.dart';
 import 'communities_list_screen.dart';
-
-// ── Sample data ───────────────────────────────────────────────────────────────
-
-class _Post {
-  final String id;
-  final String authorName;
-  final String authorAvatar;
-  final String authorBadge; // e.g. 'New Member', 'Top Contributor'
-  final String authorBadgeEmoji;
-  final String authorSub; // e.g. '8w pregnant · Jan 2026'
-  final String content;
-  final String? tag; // e.g. 'Question', 'Win & Milestone'
-  final Color? tagColor;
-  final int likes;
-  final int comments;
-  final String timeAgo;
-
-  const _Post({
-    required this.id,
-    required this.authorName,
-    required this.authorAvatar,
-    required this.authorBadge,
-    required this.authorBadgeEmoji,
-    required this.authorSub,
-    required this.content,
-    this.tag,
-    this.tagColor,
-    required this.likes,
-    required this.comments,
-    required this.timeAgo,
-  });
-}
-
-const _pinnedPost = _Post(
-  id: 'pinned',
-  authorName: 'Admin',
-  authorAvatar: '',
-  authorBadge: '',
-  authorBadgeEmoji: '',
-  authorSub: 'Jan 1, 2025',
-  content:
-      'Welcome January 2026 Moms! 💜\nIntroduce yourself, share a little about your due date, and let\'s build a caring and supportive community together.',
-  likes: 128,
-  comments: 56,
-  timeAgo: 'Jan 1, 2025',
-);
-
-final _allPosts = <_Post>[
-  const _Post(
-    id: '1',
-    authorName: 'Neha Sharma',
-    authorAvatar: 'https://i.pravatar.cc/150?img=47',
-    authorBadge: 'New Member',
-    authorBadgeEmoji: '',
-    authorSub: '8w pregnant · Jan 2026',
-    content:
-        'Hi everyone! I\'m Neha, 8 weeks pregnant with my first baby 💕\nSo excited (and a little nervous 😅). Can\'t wait to connect with all of you!',
-    likes: 32,
-    comments: 18,
-    timeAgo: '2h ago',
-  ),
-  const _Post(
-    id: '2',
-    authorName: 'Ayesha Khan',
-    authorAvatar: 'https://i.pravatar.cc/150?img=32',
-    authorBadge: 'Top Contributor',
-    authorBadgeEmoji: '🏅',
-    authorSub: '12w pregnant · Jan 2026',
-    content:
-        'Nausea got me like 🤢 any tips that actually helped you in the first trimester?',
-    tag: 'Question',
-    tagColor: Color(0xFF7C4DFF),
-    likes: 0,
-    comments: 24,
-    timeAgo: '5h ago',
-  ),
-  const _Post(
-    id: '3',
-    authorName: 'Pooja Mehta',
-    authorAvatar: 'https://i.pravatar.cc/150?img=25',
-    authorBadge: 'Top Contributor',
-    authorBadgeEmoji: '🏅',
-    authorSub: '20w pregnant · Jan 2026',
-    content:
-        'Had my anomaly scan today and everything looks perfect! Feeling so grateful and relieved 🙏 💜',
-    tag: 'Win & Milestone',
-    tagColor: Color(0xFFFF80AB),
-    likes: 89,
-    comments: 42,
-    timeAgo: '1d ago',
-  ),
-  const _Post(
-    id: '4',
-    authorName: 'Riya Patel',
-    authorAvatar: 'https://i.pravatar.cc/150?img=44',
-    authorBadge: 'New Member',
-    authorBadgeEmoji: '',
-    authorSub: '6w pregnant · Jan 2026',
-    content:
-        'Just found out I\'m pregnant! Still in shock but so happy 🥹 This is my second pregnancy and I\'m already feeling more tired than the first time.',
-    likes: 54,
-    comments: 12,
-    timeAgo: '2d ago',
-  ),
-];
-
-final _questionPosts = _allPosts.where((p) => p.tag == 'Question').toList();
-final _milestonePosts = _allPosts.where((p) => p.tag == 'Win & Milestone').toList();
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-class CommunityScreen extends StatefulWidget {
-  final CommunityInfo? community;
-
-  const CommunityScreen({super.key, this.community});
+class CommunityScreen extends ConsumerStatefulWidget {
+  final CommunityInfo community;
+  const CommunityScreen({super.key, required this.community});
 
   @override
-  State<CommunityScreen> createState() => _CommunityScreenState();
+  ConsumerState<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-class _CommunityScreenState extends State<CommunityScreen>
+class _CommunityScreenState extends ConsumerState<CommunityScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final Map<String, bool> _liked = {};
 
-  static const _tabs = ['All Posts', 'Questions', 'Wins & Milestones', 'Rants & Raves', 'Resources'];
+  static const _tabs = [
+    'All Posts', 'Questions', 'Wins & Milestones', 'Rants & Raves', 'Resources'
+  ];
 
-  // Convenience getter — falls back to the default "January 2026 Moms" data
-  CommunityInfo get _info => widget.community ?? const CommunityInfo(
-    id: 'jan2026moms',
-    name: 'January 2026 Moms',
-    description: 'A safe space for moms due in January 2026 to connect, share and support each other.',
-    emoji: '🤱',
-    color: AppColors.primary,
-    colorLight: AppColors.primaryLight,
-    memberCount: 2400,
-    activeCount: 126,
-    category: 'Pregnancy',
-    isJoined: true,
-    tags: ['Pregnancy', 'Support'],
-  );
+  CommunityInfo get _info => widget.community;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(postsProviderFamily(_info.id).notifier).load();
+    });
   }
 
   @override
@@ -158,16 +47,20 @@ class _CommunityScreenState extends State<CommunityScreen>
     super.dispose();
   }
 
-  List<_Post> _postsForTab(int index) {
+  List<CommunityPost> _postsForTab(List<CommunityPost> all, int index) {
     switch (index) {
-      case 1: return _questionPosts;
-      case 2: return _milestonePosts;
-      default: return _allPosts;
+      case 1: return all.where((p) => p.tag == 'Question').toList();
+      case 2: return all.where((p) => p.tag == 'Win & Milestone').toList();
+      case 3: return all.where((p) => p.tag == 'Rant & Rave').toList();
+      case 4: return all.where((p) => p.tag == 'Resource').toList();
+      default: return all;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final postsState = ref.watch(postsProviderFamily(_info.id));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: NestedScrollView(
@@ -177,13 +70,11 @@ class _CommunityScreenState extends State<CommunityScreen>
         body: TabBarView(
           controller: _tabController,
           children: List.generate(_tabs.length, (i) {
-            final posts = _postsForTab(i);
+            final posts = _postsForTab(postsState.posts, i);
             return _PostFeed(
+              communityId: _info.id,
               posts: posts,
-              liked: _liked,
-              onLike: (id) => setState(() {
-                _liked[id] = !(_liked[id] ?? false);
-              }),
+              isLoading: postsState.isLoading,
               header: i == 0 ? _buildFeedHeader() : null,
             );
           }),
@@ -195,26 +86,23 @@ class _CommunityScreenState extends State<CommunityScreen>
         foregroundColor: Colors.white,
         elevation: 4,
         icon: const Icon(Icons.edit_rounded, size: 18),
-        label: Text('Create Post', style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+        label: Text('Create Post',
+            style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
       ),
     );
   }
 
-  // Header shown above the post feed — hero + quick actions + pinned post
   Widget _buildFeedHeader() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildHeroBanner(),
         _buildQuickActions(),
-        _buildPinnedPost(),
-        const SizedBox(height: AppConstants.paddingS),
       ],
     );
   }
 
   Widget _buildAppBar(bool innerBoxIsScrolled) {
-    final hasBack = widget.community != null;
     return SliverAppBar(
       pinned: true,
       floating: false,
@@ -223,33 +111,50 @@ class _CommunityScreenState extends State<CommunityScreen>
       elevation: 0,
       scrolledUnderElevation: 1,
       shadowColor: AppColors.divider,
-      automaticallyImplyLeading: false,
-      leading: hasBack
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
-              onPressed: () => Navigator.pop(context),
-            )
-          : null,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded,
+            color: AppColors.textPrimary),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: Text(_info.name, style: AppTextStyles.headlineMedium),
-      centerTitle: !hasBack,
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary, size: 22),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: const Icon(Icons.more_horiz_rounded, color: AppColors.textPrimary, size: 22),
+          icon: const Icon(Icons.notifications_outlined,
+              color: AppColors.textPrimary, size: 22),
           onPressed: () {},
         ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
-        child: _buildTabBar(),
+        child: Container(
+          color: AppColors.background,
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 2.5,
+            dividerColor: AppColors.divider,
+            labelStyle: AppTextStyles.titleMedium
+                .copyWith(color: AppColors.primary),
+            unselectedLabelStyle: AppTextStyles.titleMedium
+                .copyWith(color: AppColors.textSecondary),
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.paddingL),
+            tabs: _tabs.map((t) => Tab(text: t)).toList(),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildHeroBanner() {
+    final cs = ref.watch(communityProvider);
+    final memberCount = cs.memberCount(_info.id);
+    final isJoined = cs.isJoined(_info.id);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppConstants.paddingL, AppConstants.paddingS,
@@ -268,100 +173,105 @@ class _CommunityScreenState extends State<CommunityScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Hello, Mama! 👋',
-                  style: AppTextStyles.bodyMedium.copyWith(color: _info.color),
-                ),
+                Text('Hello, Mama! 👋',
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: _info.color)),
                 const SizedBox(height: 2),
-                Text(
-                  _info.name,
-                  style: AppTextStyles.headlineLarge.copyWith(color: AppColors.textPrimary),
-                ),
+                Text(_info.name,
+                    style: AppTextStyles.headlineLarge
+                        .copyWith(color: AppColors.textPrimary)),
                 const SizedBox(height: 6),
-                Text(
-                  _info.description,
-                  style: AppTextStyles.bodySmall,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(_info.description,
+                    style: AppTextStyles.bodySmall,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    // Member avatars
-                    SizedBox(
-                      width: 56,
-                      height: 22,
-                      child: Stack(
-                        children: List.generate(3, (i) => Positioned(
-                          left: i * 16.0,
-                          child: Container(
-                            width: 22, height: 22,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
-                              color: _info.color.withValues(alpha: 0.3),
-                            ),
-                            child: ClipOval(
-                              child: Image.network(
-                                'https://i.pravatar.cc/150?img=${40 + i}',
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
-                                  child: Text('👩', style: TextStyle(fontSize: 10)),
-                                ),
-                              ),
-                            ),
-                          ),
-                        )),
-                      ),
-                    ),
-                    Text(
-                      _formatCount(_info.memberCount),
-                      style: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.people_outline_rounded,
+                            size: 14, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          memberCount > 0
+                              ? '${memberCount >= 1000 ? '${(memberCount / 1000).toStringAsFixed(1)}K' : memberCount} Members'
+                              : 'Be the first to join!',
+                          style: AppTextStyles.labelMedium,
+                        ),
+                      ],
                     ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 7, height: 7,
-                          decoration: const BoxDecoration(
-                            color: AppColors.accentGreen,
-                            shape: BoxShape.circle,
+                            width: 7, height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppColors.accentGreen,
+                              shape: BoxShape.circle,
+                            )),
+                        const SizedBox(width: 4),
+                        Text('${_info.activeCount} active',
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.accentGreen)),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () => ref
+                          .read(communityProvider.notifier)
+                          .toggleJoin(_info.id),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isJoined
+                              ? AppColors.background
+                              : _info.color,
+                          borderRadius: BorderRadius.circular(
+                              AppConstants.radiusFull),
+                          border: Border.all(
+                            color: isJoined
+                                ? AppColors.divider
+                                : _info.color,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Active now ${_info.activeCount}',
-                          style: AppTextStyles.labelSmall.copyWith(color: AppColors.accentGreen),
+                        child: Text(
+                          isJoined ? 'Leave' : 'Join',
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: isJoined
+                                ? AppColors.textSecondary
+                                : Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          // Emoji illustration
+          const SizedBox(width: 8),
           Container(
-            width: 90,
-            height: 90,
+            width: 80, height: 80,
             decoration: BoxDecoration(
               color: _info.color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              borderRadius:
+                  BorderRadius.circular(AppConstants.radiusM),
             ),
             child: Center(
-              child: Text(_info.emoji, style: const TextStyle(fontSize: 44)),
+              child: Text(_info.emoji,
+                  style: const TextStyle(fontSize: 40)),
             ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatCount(int n) {
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K Members';
-    return '$n Members';
   }
 
   Widget _buildQuickActions() {
@@ -391,14 +301,17 @@ class _CommunityScreenState extends State<CommunityScreen>
                     width: 44, height: 44,
                     decoration: BoxDecoration(
                       color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                      borderRadius:
+                          BorderRadius.circular(AppConstants.radiusM),
                     ),
-                    child: Icon(a['icon'] as IconData, color: AppColors.primary, size: 20),
+                    child: Icon(a['icon'] as IconData,
+                        color: AppColors.primary, size: 20),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     a['label'] as String,
-                    style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.textSecondary),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -412,143 +325,60 @@ class _CommunityScreenState extends State<CommunityScreen>
     );
   }
 
-  Widget _buildPinnedPost() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
-      padding: const EdgeInsets.all(AppConstants.paddingM),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.push_pin_rounded, size: 13, color: AppColors.primary),
-              const SizedBox(width: 4),
-              Text(
-                'Pinned by Admin',
-                style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
-              ),
-              const Spacer(),
-              const Icon(Icons.more_horiz_rounded, size: 16, color: AppColors.textHint),
-            ],
-          ),
-          const SizedBox(height: AppConstants.paddingS),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(AppConstants.radiusS),
-                ),
-                child: const Center(child: Text('📢', style: TextStyle(fontSize: 18))),
-              ),
-              const SizedBox(width: AppConstants.paddingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_pinnedPost.content, style: AppTextStyles.bodySmall, maxLines: 3, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Text(
-                          'Posted by Admin · ${_pinnedPost.timeAgo}',
-                          style: AppTextStyles.labelSmall,
-                        ),
-                        const Spacer(),
-                        const Icon(Icons.favorite_rounded, size: 12, color: AppColors.accentPink),
-                        const SizedBox(width: 3),
-                        Text('${_pinnedPost.likes}', style: AppTextStyles.labelSmall),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chat_bubble_outline_rounded, size: 12, color: AppColors.textSecondary),
-                        const SizedBox(width: 3),
-                        Text('${_pinnedPost.comments}', style: AppTextStyles.labelSmall),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      color: AppColors.background,
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        indicatorColor: AppColors.primary,
-        indicatorWeight: 2.5,
-        dividerColor: AppColors.divider,
-        labelStyle: AppTextStyles.titleMedium.copyWith(color: AppColors.primary),
-        unselectedLabelStyle: AppTextStyles.titleMedium.copyWith(color: AppColors.textSecondary),
-        labelColor: AppColors.primary,
-        unselectedLabelColor: AppColors.textSecondary,
-        padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
-        tabs: _tabs.map((t) => Tab(text: t)).toList(),
-      ),
-    );
-  }
-
   void _showCreatePost(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CreatePostSheet(),
+      builder: (_) => _CreatePostSheet(
+        communityId: _info.id,
+        onPost: (content, tag, imageUrl) async {
+          final messenger = ScaffoldMessenger.of(context);
+          final ok = await ref
+              .read(postsProviderFamily(_info.id).notifier)
+              .createPost(content: content, tag: tag, imageUrl: imageUrl);
+          if (ok && mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: const Text('Post shared with the community!'),
+                backgroundColor: AppColors.primary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppConstants.radiusM)),
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 }
 
 // ── Post Feed ─────────────────────────────────────────────────────────────────
 
-class _PostFeed extends StatelessWidget {
-  final List<_Post> posts;
-  final Map<String, bool> liked;
-  final void Function(String id) onLike;
+class _PostFeed extends ConsumerWidget {
+  final String communityId;
+  final List<CommunityPost> posts;
+  final bool isLoading;
   final Widget? header;
 
   const _PostFeed({
+    required this.communityId,
     required this.posts,
-    required this.liked,
-    required this.onLike,
+    required this.isLoading,
     this.header,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (posts.isEmpty && header == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 60),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('💬', style: TextStyle(fontSize: 48)),
-              const SizedBox(height: AppConstants.paddingL),
-              Text('No posts yet', style: AppTextStyles.headlineSmall),
-              const SizedBox(height: 6),
-              Text('Be the first to post here!', style: AppTextStyles.bodyMedium),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (isLoading && posts.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+            color: AppColors.primary, strokeWidth: 2.5),
       );
     }
 
-    // Build item list: optional header + posts (or empty state)
     final items = <Widget>[
       if (header != null) header!,
       if (posts.isEmpty)
@@ -562,7 +392,8 @@ class _PostFeed extends StatelessWidget {
                 const SizedBox(height: AppConstants.paddingL),
                 Text('No posts yet', style: AppTextStyles.headlineSmall),
                 const SizedBox(height: 6),
-                Text('Be the first to post here!', style: AppTextStyles.bodyMedium),
+                Text('Be the first to post here!',
+                    style: AppTextStyles.bodyMedium),
               ],
             ),
           ),
@@ -570,20 +401,16 @@ class _PostFeed extends StatelessWidget {
       else
         ...posts.map((p) => _PostCard(
               post: p,
-              isLiked: liked[p.id] ?? false,
-              onLike: () => onLike(p.id),
+              communityId: communityId,
             )),
     ];
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
-        AppConstants.paddingL, 0,
-        AppConstants.paddingL, 100,
-      ),
+          AppConstants.paddingL, 0, AppConstants.paddingL, 100),
       itemCount: items.length,
       separatorBuilder: (_, i) {
-        // No divider before/after the header
-        if (header != null && (i == 0)) return const SizedBox.shrink();
+        if (header != null && i == 0) return const SizedBox.shrink();
         return const Divider(height: 1, color: AppColors.divider);
       },
       itemBuilder: (_, i) => items[i],
@@ -593,140 +420,166 @@ class _PostFeed extends StatelessWidget {
 
 // ── Post Card ─────────────────────────────────────────────────────────────────
 
-class _PostCard extends StatelessWidget {
-  final _Post post;
-  final bool isLiked;
-  final VoidCallback onLike;
+class _PostCard extends ConsumerWidget {
+  final CommunityPost post;
+  final String communityId;
 
-  const _PostCard({required this.post, required this.isLiked, required this.onLike});
+  const _PostCard({required this.post, required this.communityId});
+
+  static const _tagColors = {
+    'Question': Color(0xFF7C4DFF),
+    'Win & Milestone': Color(0xFFFF80AB),
+    'Rant & Rave': Color(0xFFFF6D00),
+    'Resource': Color(0xFF00C853),
+    'General': AppColors.primary,
+  };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final myId = SupabaseService.currentUser?.id;
+    final isMyPost = myId == post.userId;
+    final tagColor = _tagColors[post.tag] ?? AppColors.primary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppConstants.paddingM),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Pinned indicator
+          if (post.isPinned) ...[
+            Row(
+              children: [
+                const Icon(Icons.push_pin_rounded,
+                    size: 13, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Text('Pinned',
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.primary)),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
           // Author row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar
-              ClipOval(
-                child: post.authorAvatar.isNotEmpty
-                    ? Image.network(
-                        post.authorAvatar,
-                        width: 40, height: 40,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _avatarFallback(post.authorName),
-                      )
-                    : _avatarFallback(post.authorName),
-              ),
+              _Avatar(name: post.authorName, url: post.authorAvatarUrl),
               const SizedBox(width: AppConstants.paddingM),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Wrap(
-                      spacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(post.authorName, style: AppTextStyles.titleMedium),
-                        if (post.authorBadge.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: post.authorBadge == 'Top Contributor'
-                                  ? AppColors.accentOrangeLight
-                                  : AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (post.authorBadgeEmoji.isNotEmpty)
-                                  Text(post.authorBadgeEmoji, style: const TextStyle(fontSize: 10)),
-                                if (post.authorBadgeEmoji.isNotEmpty)
-                                  const SizedBox(width: 3),
-                                Text(
-                                  post.authorBadge,
-                                  style: AppTextStyles.labelSmall.copyWith(
-                                    color: post.authorBadge == 'Top Contributor'
-                                        ? AppColors.accentOrange
-                                        : AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    Text(post.authorSub, style: AppTextStyles.labelSmall),
+                    Text(post.authorName,
+                        style: AppTextStyles.titleMedium),
+                    Text(post.timeAgo,
+                        style: AppTextStyles.labelSmall),
                   ],
                 ),
               ),
-              Text(post.timeAgo, style: AppTextStyles.labelSmall),
-              const SizedBox(width: 4),
-              const Icon(Icons.more_horiz_rounded, size: 18, color: AppColors.textHint),
+              if (isMyPost)
+                GestureDetector(
+                  onTap: () => _confirmDelete(context, ref),
+                  child: const Icon(Icons.more_horiz_rounded,
+                      size: 18, color: AppColors.textHint),
+                )
+              else
+                const Icon(Icons.more_horiz_rounded,
+                    size: 18, color: AppColors.textHint),
             ],
           ),
           const SizedBox(height: AppConstants.paddingM),
           // Content
-          Text(post.content, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
-          // Tag
-          if (post.tag != null) ...[
-            const SizedBox(height: AppConstants.paddingS),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: (post.tagColor ?? AppColors.primary).withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-              ),
-              child: Text(
-                post.tag!,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: post.tagColor ?? AppColors.primary,
-                  fontWeight: FontWeight.w700,
+          Text(post.content,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary)),
+          // Post image
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+            const SizedBox(height: AppConstants.paddingM),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              child: Image.network(
+                post.imageUrl!,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : Container(
+                        height: 200,
+                        color: AppColors.primaryLight,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary, strokeWidth: 2),
+                        ),
+                      ),
+                errorBuilder: (_, __, ___) => Container(
+                  height: 120,
+                  color: AppColors.primaryLight,
+                  child: const Center(
+                    child: Icon(Icons.broken_image_rounded,
+                        color: AppColors.primaryMid, size: 32),
+                  ),
                 ),
               ),
             ),
           ],
+          // Tag
+          if (post.tag != null) ...[
+            const SizedBox(height: AppConstants.paddingS),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: tagColor.withValues(alpha: 0.12),
+                borderRadius:
+                    BorderRadius.circular(AppConstants.radiusFull),
+              ),
+              child: Text(post.tag!,
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: tagColor,
+                    fontWeight: FontWeight.w700,
+                  )),
+            ),
+          ],
           const SizedBox(height: AppConstants.paddingM),
-          // Reactions row
+          // Reactions
           Row(
             children: [
               GestureDetector(
-                onTap: onLike,
+                onTap: () => ref
+                    .read(postsProviderFamily(communityId).notifier)
+                    .toggleLike(post.id),
                 child: Row(
                   children: [
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
                       child: Icon(
-                        isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        key: ValueKey(isLiked),
+                        post.isLikedByMe
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        key: ValueKey(post.isLikedByMe),
                         size: 18,
-                        color: isLiked ? AppColors.accentPink : AppColors.textSecondary,
+                        color: post.isLikedByMe
+                            ? AppColors.accentPink
+                            : AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      '${post.likes + (isLiked ? 1 : 0)}',
-                      style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
-                    ),
+                    Text('${post.likeCount}',
+                        style: AppTextStyles.labelMedium
+                            .copyWith(color: AppColors.textSecondary)),
                   ],
                 ),
               ),
               const SizedBox(width: AppConstants.paddingXL),
               Row(
                 children: [
-                  const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: AppColors.textSecondary),
+                  const Icon(Icons.chat_bubble_outline_rounded,
+                      size: 16, color: AppColors.textSecondary),
                   const SizedBox(width: 4),
-                  Text(
-                    '${post.comments} comments',
-                    style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
-                  ),
+                  Text('${post.commentCount} comments',
+                      style: AppTextStyles.labelMedium
+                          .copyWith(color: AppColors.textSecondary)),
                 ],
               ),
             ],
@@ -736,37 +589,147 @@ class _PostCard extends StatelessWidget {
     );
   }
 
-  Widget _avatarFallback(String name) {
-    return Container(
-      width: 40, height: 40,
-      color: AppColors.primaryLight,
-      child: Center(
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : '👩',
-          style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary),
+  void _confirmDelete(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(AppConstants.paddingL),
+        padding: const EdgeInsets.all(AppConstants.paddingXL),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Delete Post?', style: AppTextStyles.headlineMedium),
+            const SizedBox(height: 8),
+            Text('This cannot be undone.',
+                style: AppTextStyles.bodyMedium),
+            const SizedBox(height: AppConstants.paddingXL),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: AppConstants.paddingM),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ref
+                          .read(postsProviderFamily(communityId).notifier)
+                          .deletePost(post.id);
+                    },
+                    child: const Text('Delete'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+// ── Avatar ────────────────────────────────────────────────────────────────────
+
+class _Avatar extends StatelessWidget {
+  final String name;
+  final String? url;
+  const _Avatar({required this.name, this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: url != null && url!.isNotEmpty
+          ? Image.network(url!, width: 40, height: 40, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _fallback())
+          : _fallback(),
+    );
+  }
+
+  Widget _fallback() => Container(
+        width: 40, height: 40,
+        color: AppColors.primaryLight,
+        child: Center(
+          child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : '👩',
+            style: AppTextStyles.titleMedium
+                .copyWith(color: AppColors.primary),
+          ),
+        ),
+      );
+}
+
 // ── Create Post Sheet ─────────────────────────────────────────────────────────
 
 class _CreatePostSheet extends StatefulWidget {
+  final String communityId;
+  final Future<void> Function(String content, String? tag, String? imageUrl) onPost;
+
+  const _CreatePostSheet({
+    required this.communityId,
+    required this.onPost,
+  });
+
   @override
   State<_CreatePostSheet> createState() => _CreatePostSheetState();
 }
 
 class _CreatePostSheetState extends State<_CreatePostSheet> {
   final _controller = TextEditingController();
+  final _picker = ImagePicker();
   String? _selectedTag;
+  bool _isPosting = false;
+  File? _imageFile;
+  String? _uploadError;
 
-  static const _tags = ['Question', 'Win & Milestone', 'Rant & Rave', 'Resource', 'General'];
+  static const _tags = [
+    'Question', 'Win & Milestone', 'Rant & Rave', 'Resource', 'General'
+  ];
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _imageFile = File(picked.path);
+        _uploadError = null;
+      });
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _imageFile = File(picked.path);
+        _uploadError = null;
+      });
+    }
   }
 
   @override
@@ -801,14 +764,17 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
             const SizedBox(height: AppConstants.paddingL),
             Text('Create Post', style: AppTextStyles.headlineMedium),
             const SizedBox(height: AppConstants.paddingXL),
+            // Text input
             TextField(
               controller: _controller,
-              maxLines: 5,
+              maxLines: 4,
               maxLength: 500,
               autofocus: true,
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 hintText: 'Share something with the community...',
-                hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
+                hintStyle: AppTextStyles.bodyMedium
+                    .copyWith(color: AppColors.textHint),
                 filled: true,
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
@@ -817,9 +783,69 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 ),
                 counterStyle: AppTextStyles.labelSmall,
               ),
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
             ),
             const SizedBox(height: AppConstants.paddingM),
+
+            // Image preview
+            if (_imageFile != null) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    child: Image.file(
+                      _imageFile!,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _imageFile = null),
+                      child: Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.paddingM),
+            ],
+
+            // Image picker buttons
+            Row(
+              children: [
+                _ImagePickerBtn(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Gallery',
+                  onTap: _pickImage,
+                ),
+                const SizedBox(width: AppConstants.paddingS),
+                _ImagePickerBtn(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  onTap: _takePhoto,
+                ),
+              ],
+            ),
+
+            if (_uploadError != null) ...[
+              const SizedBox(height: 6),
+              Text(_uploadError!,
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.error)),
+            ],
+
+            const SizedBox(height: AppConstants.paddingL),
             Text('Tag your post', style: AppTextStyles.titleMedium),
             const SizedBox(height: AppConstants.paddingS),
             Wrap(
@@ -828,23 +854,34 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
               children: _tags.map((tag) {
                 final isSelected = _selectedTag == tag;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedTag = isSelected ? null : tag),
+                  onTap: () => setState(
+                      () => _selectedTag = isSelected ? null : tag),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : AppColors.background,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.background,
+                      borderRadius: BorderRadius.circular(
+                          AppConstants.radiusFull),
                       border: Border.all(
-                        color: isSelected ? AppColors.primary : AppColors.divider,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.divider,
                         width: 1.5,
                       ),
                     ),
                     child: Text(
                       tag,
                       style: AppTextStyles.labelMedium.copyWith(
-                        color: isSelected ? Colors.white : AppColors.textPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -855,25 +892,102 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _controller.text.trim().isEmpty
+                onPressed: _controller.text.trim().isEmpty || _isPosting
                     ? null
-                    : () => Navigator.pop(context),
+                    : () async {
+                        setState(() {
+                          _isPosting = true;
+                          _uploadError = null;
+                        });
+                        final nav = Navigator.of(context);
+                        String? imageUrl;
+                        // Upload image to Cloudinary if selected
+                        if (_imageFile != null) {
+                          try {
+                            final userId = SupabaseService.currentUser?.id ?? 'community';
+                            final url = await CloudinaryService.uploadMemoryPhoto(
+                              file: _imageFile!,
+                              userId: userId,
+                              babyId: 'community_posts',
+                            );
+                            imageUrl = url;
+                          } catch (e) {
+                            if (mounted) {
+                              setState(() {
+                                _isPosting = false;
+                                _uploadError = 'Image upload failed. Try again.';
+                              });
+                            }
+                            return;
+                          }
+                        }
+                        await widget.onPost(
+                            _controller.text.trim(), _selectedTag, imageUrl);
+                        if (mounted) nav.pop();
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: AppColors.primaryMid,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderRadius:
+                        BorderRadius.circular(AppConstants.radiusM),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  'Post to Community',
-                  style: AppTextStyles.titleMedium.copyWith(color: Colors.white),
-                ),
+                child: _isPosting
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : Text(
+                        _imageFile != null
+                            ? 'Post with Photo'
+                            : 'Post to Community',
+                        style: AppTextStyles.titleMedium
+                            .copyWith(color: Colors.white)),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Image picker button ───────────────────────────────────────────────────────
+
+class _ImagePickerBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ImagePickerBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+          border: Border.all(color: AppColors.primaryMid),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(label,
+                style: AppTextStyles.labelMedium
+                    .copyWith(color: AppColors.primary)),
           ],
         ),
       ),
