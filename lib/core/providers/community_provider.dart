@@ -147,7 +147,7 @@ class PostsNotifier extends StateNotifier<PostsState> {
     }
   }
 
-  Future<bool> createPost({required String content, String? tag}) async {
+  Future<bool> createPost({required String content, String? tag, String? imageUrl}) async {
     final user = SupabaseService.currentUser;
     if (user == null) return false;
 
@@ -158,6 +158,7 @@ class PostsNotifier extends StateNotifier<PostsState> {
         userId: user.id,
         content: content,
         tag: tag,
+        imageUrl: imageUrl,
       );
       if (post != null) {
         state = state.copyWith(

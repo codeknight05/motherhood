@@ -11,6 +11,7 @@ class CommunityPost {
   final String? authorAvatarUrl;
   final String content;
   final String? tag;
+  final String? imageUrl;
   final bool isPinned;
   final int likeCount;
   final int commentCount;
@@ -25,6 +26,7 @@ class CommunityPost {
     this.authorAvatarUrl,
     required this.content,
     this.tag,
+    this.imageUrl,
     this.isPinned = false,
     this.likeCount = 0,
     this.commentCount = 0,
@@ -47,6 +49,7 @@ class CommunityPost {
       authorAvatarUrl: profile?['avatar_url'] as String?,
       content: json['content'] as String,
       tag: json['tag'] as String?,
+      imageUrl: json['image_url'] as String?,
       isPinned: json['is_pinned'] as bool? ?? false,
       likeCount: likeCount,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
@@ -165,7 +168,7 @@ class CommunityService {
     try {
       final res = await _client
           .from('community_posts')
-          .select('id, community_id, user_id, content, tag, is_pinned, created_at, post_likes(user_id)')
+          .select('id, community_id, user_id, content, tag, image_url, is_pinned, created_at, post_likes(user_id)')
           .eq('community_id', communityId)
           .order('is_pinned', ascending: false)
           .order('created_at', ascending: false)
@@ -223,6 +226,7 @@ class CommunityService {
     required String userId,
     required String content,
     String? tag,
+    String? imageUrl,
   }) async {
     try {
       final res = await _client
@@ -232,8 +236,9 @@ class CommunityService {
             'user_id': userId,
             'content': content.trim(),
             if (tag != null) 'tag': tag,
+            if (imageUrl != null) 'image_url': imageUrl,
           })
-          .select('id, community_id, user_id, content, tag, is_pinned, created_at, post_likes(user_id)')
+          .select('id, community_id, user_id, content, tag, image_url, is_pinned, created_at, post_likes(user_id)')
           .single();
 
       final post = CommunityPost.fromJson(res, userId);
@@ -254,6 +259,7 @@ class CommunityService {
             authorAvatarUrl: profile['avatar_url'] as String?,
             content: post.content,
             tag: post.tag,
+            imageUrl: post.imageUrl,
             isPinned: post.isPinned,
             likeCount: post.likeCount,
             commentCount: post.commentCount,

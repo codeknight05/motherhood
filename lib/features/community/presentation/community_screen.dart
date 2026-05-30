@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/community_provider.dart';
 import '../../../core/services/community_service.dart';
+import '../../../core/services/cloudinary_service.dart';
 import '../../../core/services/supabase_service.dart';
 import 'communities_list_screen.dart';
 
@@ -329,11 +332,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => _CreatePostSheet(
         communityId: _info.id,
-        onPost: (content, tag) async {
+        onPost: (content, tag, imageUrl) async {
           final messenger = ScaffoldMessenger.of(context);
           final ok = await ref
               .read(postsProviderFamily(_info.id).notifier)
-              .createPost(content: content, tag: tag);
+              .createPost(content: content, tag: tag, imageUrl: imageUrl);
           if (ok && mounted) {
             messenger.showSnackBar(
               SnackBar(
@@ -490,6 +493,36 @@ class _PostCard extends ConsumerWidget {
           Text(post.content,
               style: AppTextStyles.bodyMedium
                   .copyWith(color: AppColors.textPrimary)),
+          // Post image
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+            const SizedBox(height: AppConstants.paddingM),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
+              child: Image.network(
+                post.imageUrl!,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : Container(
+                        height: 200,
+                        color: AppColors.primaryLight,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary, strokeWidth: 2),
+                        ),
+                      ),
+                errorBuilder: (_, __, ___) => Container(
+                  height: 120,
+                  color: AppColors.primaryLight,
+                  child: const Center(
+                    child: Icon(Icons.broken_image_rounded,
+                        color: AppColors.primaryMid, size: 32),
+                  ),
+                ),
+              ),
+            ),
+          ],
           // Tag
           if (post.tag != null) ...[
             const SizedBox(height: AppConstants.paddingS),
@@ -642,7 +675,7 @@ class _Avatar extends StatelessWidget {
 
 class _CreatePostSheet extends StatefulWidget {
   final String communityId;
-  final Future<void> Function(String content, String? tag) onPost;
+  final Future<void> Function(String content, String? tag, String? imageUrl) onPost;
 
   const _CreatePostSheet({
     required this.communityId,
@@ -655,8 +688,11 @@ class _CreatePostSheet extends StatefulWidget {
 
 class _CreatePostSheetState extends State<_CreatePostSheet> {
   final _controller = TextEditingController();
+  final _picker = ImagePicker();
   String? _selectedTag;
   bool _isPosting = false;
+  File? _imageFile;
+  String? _uploadError;
 
   static const _tags = [
     'Question', 'Win & Milestone', 'Rant & Rave', 'Resource', 'General'
@@ -666,6 +702,34 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _imageFile = File(picked.path);
+        _uploadError = null;
+      });
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _imageFile = File(picked.path);
+        _uploadError = null;
+      });
+    }
   }
 
   @override
@@ -700,9 +764,10 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
             const SizedBox(height: AppConstants.paddingL),
             Text('Create Post', style: AppTextStyles.headlineMedium),
             const SizedBox(height: AppConstants.paddingXL),
+            // Text input
             TextField(
               controller: _controller,
-              maxLines: 5,
+              maxLines: 4,
               maxLength: 500,
               autofocus: true,
               onChanged: (_) => setState(() {}),
@@ -713,8 +778,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 filled: true,
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppConstants.radiusM),
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
                   borderSide: BorderSide.none,
                 ),
                 counterStyle: AppTextStyles.labelSmall,
@@ -723,6 +787,65 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                   .copyWith(color: AppColors.textPrimary),
             ),
             const SizedBox(height: AppConstants.paddingM),
+
+            // Image preview
+            if (_imageFile != null) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    child: Image.file(
+                      _imageFile!,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _imageFile = null),
+                      child: Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.paddingM),
+            ],
+
+            // Image picker buttons
+            Row(
+              children: [
+                _ImagePickerBtn(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Gallery',
+                  onTap: _pickImage,
+                ),
+                const SizedBox(width: AppConstants.paddingS),
+                _ImagePickerBtn(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  onTap: _takePhoto,
+                ),
+              ],
+            ),
+
+            if (_uploadError != null) ...[
+              const SizedBox(height: 6),
+              Text(_uploadError!,
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.error)),
+            ],
+
+            const SizedBox(height: AppConstants.paddingL),
             Text('Tag your post', style: AppTextStyles.titleMedium),
             const SizedBox(height: AppConstants.paddingS),
             Wrap(
@@ -772,18 +895,41 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                 onPressed: _controller.text.trim().isEmpty || _isPosting
                     ? null
                     : () async {
-                        setState(() => _isPosting = true);
+                        setState(() {
+                          _isPosting = true;
+                          _uploadError = null;
+                        });
                         final nav = Navigator.of(context);
+                        String? imageUrl;
+                        // Upload image to Cloudinary if selected
+                        if (_imageFile != null) {
+                          try {
+                            final userId = SupabaseService.currentUser?.id ?? 'community';
+                            final url = await CloudinaryService.uploadMemoryPhoto(
+                              file: _imageFile!,
+                              userId: userId,
+                              babyId: 'community_posts',
+                            );
+                            imageUrl = url;
+                          } catch (e) {
+                            if (mounted) {
+                              setState(() {
+                                _isPosting = false;
+                                _uploadError = 'Image upload failed. Try again.';
+                              });
+                            }
+                            return;
+                          }
+                        }
                         await widget.onPost(
-                            _controller.text.trim(), _selectedTag);
+                            _controller.text.trim(), _selectedTag, imageUrl);
                         if (mounted) nav.pop();
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: AppColors.primaryMid,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(AppConstants.radiusM),
@@ -795,11 +941,53 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                         width: 20, height: 20,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
-                    : Text('Post to Community',
+                    : Text(
+                        _imageFile != null
+                            ? 'Post with Photo'
+                            : 'Post to Community',
                         style: AppTextStyles.titleMedium
                             .copyWith(color: Colors.white)),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Image picker button ───────────────────────────────────────────────────────
+
+class _ImagePickerBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ImagePickerBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(AppConstants.radiusM),
+          border: Border.all(color: AppColors.primaryMid),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(label,
+                style: AppTextStyles.labelMedium
+                    .copyWith(color: AppColors.primary)),
           ],
         ),
       ),
