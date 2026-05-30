@@ -32,9 +32,12 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   Future<void> _initShell() async {
     final user = SupabaseService.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      setState(() => _roleChecked = true);
+      return;
+    }
 
-    // Load baby data
+    // Load baby data if not already loaded
     final babyState = ref.read(babyProvider);
     if (!babyState.hasChecked) {
       await ref.read(babyProvider.notifier).loadBaby();
@@ -94,7 +97,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Show a blank loading screen while we check the role
+    // Show a brief loading screen only while checking role for the first time
     // This prevents the wrong shell from flashing for pregnant users
     if (!_roleChecked) {
       return const Scaffold(

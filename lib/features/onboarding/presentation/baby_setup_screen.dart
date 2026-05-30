@@ -183,7 +183,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
     }
 
     // Parent — save baby details
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) return;
     if (_birthDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your baby\'s birth date')),
