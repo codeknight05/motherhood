@@ -1370,7 +1370,9 @@ class _PollSheetState extends State<_PollSheet> {
   @override
   void dispose() {
     _questionCtrl.dispose();
-    for (final c in _optionCtrls) c.dispose();
+    for (final c in _optionCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
