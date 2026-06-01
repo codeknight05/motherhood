@@ -29,7 +29,7 @@ create table if not exists public.community_posts (
   community_id text not null references public.communities(id) on delete cascade,
   user_id      uuid not null references auth.users(id) on delete cascade,
   content      text not null,
-  tag          text,           -- 'Question', 'Win & Milestone', 'Rant & Rave', 'Resource', 'General'
+  tag          text,           -- 'Question', 'Win & Milestone', 'Poll', 'Resource', 'General'
   image_url    text,
   is_pinned    boolean default false,
   created_at   timestamptz default now()

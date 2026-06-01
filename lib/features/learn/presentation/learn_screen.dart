@@ -8,6 +8,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../models/knowledge_resource_model.dart';
 import 'resource_webview_screen.dart';
+import 'youtube_player_screen.dart';
 
 class LearnScreen extends StatefulWidget {
   const LearnScreen({super.key});
@@ -132,10 +133,31 @@ class _LearnScreenState extends State<LearnScreen> {
 
   Future<void> _openResource(KnowledgeResource resource) async {
     final type = resource.resourceType.toLowerCase();
-    final isMedia = type.contains('video') || type.contains('audio');
+    final isVideo = type.contains('video');
+    final isAudio = type.contains('audio');
 
-    if (isMedia && resource.sourceUrl.isNotEmpty) {
-      // Launch video/audio directly in browser/YouTube app
+    if (isVideo) {
+      // YouTube videos → in-app player
+      if (isYouTubeUrl(resource.sourceUrl)) {
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => YouTubePlayerScreen(resource: resource),
+          ),
+        );
+        return;
+      }
+      // Non-YouTube video → open externally
+      final uri = Uri.tryParse(resource.sourceUrl);
+      if (uri != null) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return;
+    }
+
+    if (isAudio) {
+      // Audio → open externally (podcast apps etc.)
       final uri = Uri.tryParse(resource.sourceUrl);
       if (uri != null) {
         final launched = await launchUrl(
@@ -150,11 +172,11 @@ class _LearnScreenState extends State<LearnScreen> {
             ),
           );
         }
-        return;
       }
+      return;
     }
 
-    // Articles and guides → open in WebView
+    // Articles and guides → in-app WebView
     if (!mounted) return;
     await Navigator.push(
       context,

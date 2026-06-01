@@ -96,8 +96,8 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
 
 final communityProvider =
     StateNotifierProvider<CommunityNotifier, CommunityState>(
-  (_) => CommunityNotifier(),
-);
+      (_) => CommunityNotifier(),
+    );
 
 // ── Posts state per community ─────────────────────────────────────────────────
 
@@ -147,7 +147,11 @@ class PostsNotifier extends StateNotifier<PostsState> {
     }
   }
 
-  Future<bool> createPost({required String content, String? tag, String? imageUrl}) async {
+  Future<bool> createPost({
+    required String content,
+    String? tag,
+    String? imageUrl,
+  }) async {
     final user = SupabaseService.currentUser;
     if (user == null) return false;
 
@@ -161,10 +165,7 @@ class PostsNotifier extends StateNotifier<PostsState> {
         imageUrl: imageUrl,
       );
       if (post != null) {
-        state = state.copyWith(
-          posts: [post, ...state.posts],
-          isPosting: false,
-        );
+        state = state.copyWith(posts: [post, ...state.posts], isPosting: false);
         return true;
       }
       state = state.copyWith(isPosting: false);
@@ -196,6 +197,47 @@ class PostsNotifier extends StateNotifier<PostsState> {
       userId: user.id,
       currentlyLiked: post.isLikedByMe,
     );
+  }
+
+  Future<void> votePoll(String postId, int optionIndex) async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+
+    final idx = state.posts.indexWhere((p) => p.id == postId);
+    if (idx == -1) return;
+
+    final post = state.posts[idx];
+    if (post.myPollVote == optionIndex) return;
+
+    final previousVote = post.myPollVote;
+    final nextCounts = Map<int, int>.from(post.pollVoteCounts);
+    if (previousVote != null) {
+      nextCounts[previousVote] = (nextCounts[previousVote] ?? 1) - 1;
+      if (nextCounts[previousVote]! <= 0) nextCounts.remove(previousVote);
+    }
+    nextCounts[optionIndex] = (nextCounts[optionIndex] ?? 0) + 1;
+
+    final updated = List<CommunityPost>.from(state.posts);
+    updated[idx] = post.copyWith(
+      pollVoteCounts: nextCounts,
+      myPollVote: optionIndex,
+    );
+    state = state.copyWith(posts: updated);
+
+    try {
+      await CommunityService.votePoll(
+        postId: postId,
+        userId: user.id,
+        optionIndex: optionIndex,
+      );
+    } catch (e) {
+      final reverted = List<CommunityPost>.from(state.posts);
+      final currentIdx = reverted.indexWhere((p) => p.id == postId);
+      if (currentIdx != -1) {
+        reverted[currentIdx] = post;
+        state = state.copyWith(posts: reverted, error: e.toString());
+      }
+    }
   }
 
   Future<bool> createReply({
@@ -237,5 +279,5 @@ class PostsNotifier extends StateNotifier<PostsState> {
 // Family of providers — one per community
 final postsProviderFamily =
     StateNotifierProvider.family<PostsNotifier, PostsState, String>(
-  (_, communityId) => PostsNotifier(communityId),
-);
+      (_, communityId) => PostsNotifier(communityId),
+    );

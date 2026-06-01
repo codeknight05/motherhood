@@ -10,6 +10,8 @@ import '../../../core/widgets/baby_avatar.dart';
 import '../../../core/widgets/notifications_sheet.dart';
 import '../../../core/providers/baby_provider.dart';
 import '../../../core/providers/tips_provider.dart';
+import '../../../models/article_model.dart';
+import '../../learn/presentation/article_detail_screen.dart';
 import '../../../core/providers/milestones_provider.dart';
 import '../../../core/providers/pregnancy_provider.dart';
 import '../../../models/baby_model.dart';
@@ -87,48 +89,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           {'icon': Icons.vaccines_rounded,        'label': 'Vaccination\nTracker','color': AppColors.accentOrangeLight,'iconColor': AppColors.accentOrange, 'route': 'vaccination'},
         ];
 
-  final List<Map<String, dynamic>> _recommendedItems = [
-    {
-      'title': 'How to introduce solids to your baby?',
-      'duration': '5 min read',
-      'image': 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=400',
-      'color': AppColors.primaryLight,
-    },
-    {
-      'title': '7 Healthy Recipes for 8M+ Babies',
-      'duration': '10 min read',
-      'image': 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=400',
-      'color': AppColors.accentPinkLight,
-    },
-  ];
+  // Real articles for recommended section
+  List<ArticleModel> get _recommendedArticles => _isPregnant
+      ? sampleArticles.where((a) =>
+          a.id == 'umbilical_cord' || a.id == 'baby_sleep').toList()
+      : sampleArticles.where((a) =>
+          a.id == 'toddler_breakfast' || a.id == 'toddler_tantrums').toList();
 
-  final List<Map<String, dynamic>> _pregnancyRecommendedItems = [
-    {
-      'title': 'What to expect in your 2nd trimester',
-      'duration': '6 min read',
-      'image': 'https://images.unsplash.com/photo-1519340241574-2cec6aef0c01?w=400',
-      'color': const Color(0xFFFFE4EC),
-    },
-    {
-      'title': 'Nutrition guide for pregnant moms',
-      'duration': '8 min read',
-      'image': 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=400',
-      'color': AppColors.accentGreenLight,
-    },
-  ];
-
-  List<Map<String, dynamic>> get _activeRecommended =>
-      _isPregnant ? _pregnancyRecommendedItems : _recommendedItems;
+  // Articles linked to tips (by index) — tapping a tip opens the matching article
+  List<ArticleModel?> get _tipArticles => _isPregnant
+      ? [null, null, null] // pregnancy tips don't map to articles yet
+      : [
+          sampleArticles.firstWhere((a) => a.id == 'baby_sleep',
+              orElse: () => sampleArticles.first),
+          sampleArticles.firstWhere((a) => a.id == 'toddler_breakfast',
+              orElse: () => sampleArticles.first),
+          sampleArticles.firstWhere((a) => a.id == 'umbilical_cord',
+              orElse: () => sampleArticles.first),
+        ];
 
   String _monthName(int month) {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return months[month - 1];
-  }
-
-  @override
-  void dispose() {
-    _tipController.dispose();
-    super.dispose();
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -144,6 +126,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _goToJourney() => Navigator.push(
       context, MaterialPageRoute(builder: (_) => const PregnancyHomeScreen()));
+
+  void _goToArticle(ArticleModel article) => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: article)));
 
   void _handleQuickAction(String route) {
     switch (route) {
@@ -427,7 +413,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? _activeTips[index]['image']!
                   : _activeTips[0]['image']!;
               return GestureDetector(
-                onTap: _goToLearn,
+                onTap: () {
+                  // Open matching article if available, else go to Learn
+                  final articles = _tipArticles;
+                  if (index < articles.length && articles[index] != null) {
+                    _goToArticle(articles[index]!);
+                  } else {
+                    _goToLearn();
+                  }
+                },
                 child: AppCard(
                   padding: EdgeInsets.zero,
                   child: Row(
@@ -696,7 +690,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── Recommended section ───────────────────────────────────────────────────
 
   Widget _buildRecommendedSection() {
-    final items = _activeRecommended;
+    final articles = _recommendedArticles;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -706,13 +700,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: items.asMap().entries.map((entry) {
+            children: articles.asMap().entries.map((entry) {
               final i = entry.key;
-              final item = entry.value;
+              final article = entry.value;
               return Padding(
-                padding: EdgeInsets.only(right: i < items.length - 1 ? AppConstants.paddingM : 0),
+                padding: EdgeInsets.only(right: i < articles.length - 1 ? AppConstants.paddingM : 0),
                 child: GestureDetector(
-                  onTap: _goToLearn,
+                  onTap: () => _goToArticle(article),
                   child: SizedBox(
                     width: 200,
                     child: AppCard(
@@ -727,11 +721,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               topRight: Radius.circular(AppConstants.radiusL),
                             ),
                             child: Image.network(
-                              item['image'] as String,
+                              article.imageUrl,
                               height: 100, width: double.infinity, fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Container(
-                                height: 100, color: item['color'] as Color,
-                                child: const Center(child: Icon(Icons.image_rounded, color: AppColors.primaryMid, size: 32)),
+                                height: 100,
+                                color: article.categoryColor.withValues(alpha: 0.15),
+                                child: Center(child: Icon(Icons.article_rounded,
+                                    color: article.categoryColor, size: 32)),
                               ),
                             ),
                           ),
@@ -741,13 +737,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(item['title'] as String,
-                                    style: AppTextStyles.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                // Category chip
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: article.categoryColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                                  ),
+                                  child: Text(article.category,
+                                      style: AppTextStyles.labelSmall.copyWith(
+                                        color: article.categoryColor,
+                                        fontWeight: FontWeight.w700,
+                                      )),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(article.title,
+                                    style: AppTextStyles.titleMedium,
+                                    maxLines: 2, overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 6),
                                 Row(children: [
-                                  const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textSecondary),
+                                  const Icon(Icons.access_time_rounded,
+                                      size: 12, color: AppColors.textSecondary),
                                   const SizedBox(width: 3),
-                                  Text(item['duration'] as String, style: AppTextStyles.labelSmall),
+                                  Text(article.readTime, style: AppTextStyles.labelSmall),
                                 ]),
                               ],
                             ),

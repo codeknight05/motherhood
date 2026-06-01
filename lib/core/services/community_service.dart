@@ -16,6 +16,8 @@ class CommunityPost {
   final int likeCount;
   final int commentCount;
   final bool isLikedByMe;
+  final Map<int, int> pollVoteCounts;
+  final int? myPollVote;
   final DateTime createdAt;
   final List<CommunityReply> replies;
 
@@ -32,6 +34,8 @@ class CommunityPost {
     this.likeCount = 0,
     this.commentCount = 0,
     this.isLikedByMe = false,
+    this.pollVoteCounts = const {},
+    this.myPollVote,
     required this.createdAt,
     this.replies = const [],
   });
@@ -40,8 +44,8 @@ class CommunityPost {
     final profile = json['profiles'] as Map<String, dynamic>?;
     final likes = json['post_likes'] as List<dynamic>? ?? [];
     final likeCount = (json['like_count'] as num?)?.toInt() ?? likes.length;
-    final isLiked = myUserId != null &&
-        likes.any((l) => (l as Map)['user_id'] == myUserId);
+    final isLiked =
+        myUserId != null && likes.any((l) => (l as Map)['user_id'] == myUserId);
 
     return CommunityPost(
       id: json['id'] as String,
@@ -70,6 +74,8 @@ class CommunityPost {
     int? likeCount,
     int? commentCount,
     bool? isLikedByMe,
+    Map<int, int>? pollVoteCounts,
+    int? myPollVote,
     List<CommunityReply>? replies,
   }) {
     return CommunityPost(
@@ -85,6 +91,8 @@ class CommunityPost {
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+      pollVoteCounts: pollVoteCounts ?? this.pollVoteCounts,
+      myPollVote: myPollVote ?? this.myPollVote,
       createdAt: createdAt,
       replies: replies ?? this.replies,
     );
@@ -167,7 +175,8 @@ class CommunityService {
       // Try user metadata (Google sign-in stores name here)
       final meta = user.userMetadata;
       if (meta != null) {
-        final name = meta['full_name'] as String? ??
+        final name =
+            meta['full_name'] as String? ??
             meta['name'] as String? ??
             meta['display_name'] as String?;
         if (name != null && name.isNotEmpty) return name;
@@ -204,9 +213,7 @@ class CommunityService {
           .from('community_members')
           .select('community_id')
           .eq('user_id', userId);
-      return (res as List)
-          .map((r) => r['community_id'] as String)
-          .toSet();
+      return (res as List).map((r) => r['community_id'] as String).toSet();
     } catch (e) {
       debugPrint('[CommunityService] fetchJoinedIds error: $e');
       return {};
@@ -242,7 +249,9 @@ class CommunityService {
     try {
       final res = await _client
           .from('community_posts')
-          .select('id, community_id, user_id, content, tag, image_url, is_pinned, created_at, post_likes(user_id)')
+          .select(
+            'id, community_id, user_id, content, tag, image_url, is_pinned, created_at, post_likes(user_id)',
+          )
           .eq('community_id', communityId)
           .order('is_pinned', ascending: false)
           .order('created_at', ascending: false)
@@ -278,10 +287,53 @@ class CommunityService {
           hydratedPosts = posts;
         }
       }
+      hydratedPosts = await _withPollVotes(hydratedPosts, myUserId);
       return _withReplies(hydratedPosts);
     } catch (e) {
       debugPrint('[CommunityService] fetchPosts error: $e');
       return [];
+    }
+  }
+
+  static Future<List<CommunityPost>> _withPollVotes(
+    List<CommunityPost> posts,
+    String? myUserId,
+  ) async {
+    final pollPosts = posts.where((p) => p.tag == 'Poll').toList();
+    if (pollPosts.isEmpty) return posts;
+
+    try {
+      final postIds = pollPosts.map((p) => p.id).toList();
+      final res = await _client
+          .from('community_poll_votes')
+          .select('post_id, user_id, option_index')
+          .inFilter('post_id', postIds);
+
+      final countsByPost = <String, Map<int, int>>{};
+      final myVotes = <String, int>{};
+
+      for (final row in res as List) {
+        final vote = row as Map<String, dynamic>;
+        final postId = vote['post_id'] as String;
+        final optionIndex = (vote['option_index'] as num).toInt();
+        final counts = countsByPost.putIfAbsent(postId, () => <int, int>{});
+        counts[optionIndex] = (counts[optionIndex] ?? 0) + 1;
+
+        if (myUserId != null && vote['user_id'] == myUserId) {
+          myVotes[postId] = optionIndex;
+        }
+      }
+
+      return posts.map((post) {
+        if (post.tag != 'Poll') return post;
+        return post.copyWith(
+          pollVoteCounts: countsByPost[post.id] ?? const {},
+          myPollVote: myVotes[post.id],
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('[CommunityService] fetchPollVotes error: $e');
+      return posts;
     }
   }
 
@@ -363,7 +415,9 @@ class CommunityService {
             if (tag != null) 'tag': tag,
             if (imageUrl != null) 'image_url': imageUrl,
           })
-          .select('id, community_id, user_id, content, tag, image_url, is_pinned, created_at, post_likes(user_id)')
+          .select(
+            'id, community_id, user_id, content, tag, image_url, is_pinned, created_at, post_likes(user_id)',
+          )
           .single();
 
       final post = CommunityPost.fromJson(res, userId);
@@ -469,5 +523,17 @@ class CommunityService {
       debugPrint('[CommunityService] toggleLike error: $e');
       return 0;
     }
+  }
+
+  static Future<void> votePoll({
+    required String postId,
+    required String userId,
+    required int optionIndex,
+  }) async {
+    await _client.from('community_poll_votes').upsert({
+      'post_id': postId,
+      'user_id': userId,
+      'option_index': optionIndex,
+    }, onConflict: 'post_id,user_id');
   }
 }
