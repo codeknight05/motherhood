@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../food_menu/presentation/food_menu_screen.dart';
@@ -24,6 +25,22 @@ class PregnancyShell extends ConsumerStatefulWidget {
 
 class _PregnancyShellState extends ConsumerState<PregnancyShell> {
   int _currentIndex = 0;
+  bool _showExitPill = false;
+
+  void _handleBackPress() {
+    if (_currentIndex != 0) {
+      setState(() => _currentIndex = 0);
+      return;
+    }
+    if (_showExitPill) {
+      SystemNavigator.pop();
+      return;
+    }
+    setState(() => _showExitPill = true);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showExitPill = false);
+    });
+  }
 
   final List<Widget> _screens = const [
     HomeScreen(role: 'pregnant'),
@@ -62,9 +79,76 @@ class _PregnancyShellState extends ConsumerState<PregnancyShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: _buildBottomNav(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBackPress();
+      },
+      child: Stack(
+        children: [
+          Scaffold(
+            body: IndexedStack(index: _currentIndex, children: _screens),
+            bottomNavigationBar: _buildBottomNav(),
+          ),
+          if (_showExitPill)
+            Positioned(
+              bottom: 90,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: _showExitPill ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A2E),
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Press back again to exit',
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () => SystemNavigator.pop(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppColors.error,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Exit',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
