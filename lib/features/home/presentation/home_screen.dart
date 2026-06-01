@@ -7,7 +7,9 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/baby_avatar.dart';
+import '../../../core/widgets/notifications_sheet.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/tips_provider.dart';
 import '../../../core/providers/milestones_provider.dart';
 import '../../../core/providers/pregnancy_provider.dart';
 import '../../../models/baby_model.dart';
@@ -143,49 +145,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _goToJourney() => Navigator.push(
       context, MaterialPageRoute(builder: (_) => const PregnancyHomeScreen()));
 
-  void _showNotificationsSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(AppConstants.paddingL),
-        padding: const EdgeInsets.all(AppConstants.paddingXL),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppConstants.paddingL),
-            Text('Notifications', style: AppTextStyles.headlineMedium),
-            const SizedBox(height: AppConstants.paddingL),
-            if (_isPregnant) ...[
-              _NotifTile(emoji: '🤰', title: 'Weekly update ready', subtitle: 'Your Week ${ref.read(pregnancyProvider).currentWeek} guide is available.', time: '1h ago'),
-              _NotifTile(emoji: '💡', title: 'Pregnancy tip', subtitle: 'Stay hydrated — aim for 8–10 glasses of water daily.', time: '4h ago'),
-              _NotifTile(emoji: '📅', title: 'Prenatal reminder', subtitle: 'Don\'t forget your next prenatal appointment.', time: '1d ago'),
-            ] else ...[
-              _NotifTile(emoji: '🏆', title: 'Milestone achieved!', subtitle: 'Aarohi completed Social — 2/5 done', time: '2h ago'),
-              _NotifTile(emoji: '💡', title: 'Daily tip', subtitle: 'Tummy time helps strengthen neck muscles.', time: '5h ago'),
-              _NotifTile(emoji: '💉', title: 'Vaccination reminder', subtitle: 'Check upcoming vaccinations for Aarohi.', time: '1d ago'),
-            ],
-            const SizedBox(height: AppConstants.paddingM),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _handleQuickAction(String route) {
     switch (route) {
       case 'journey':
@@ -269,30 +228,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(Icons.notifications_outlined, color: AppColors.textPrimary, size: 26),
-              Positioned(
-                right: -2, top: -2,
-                child: Container(
-                  width: 16, height: 16,
-                  decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
-                  child: const Center(
-                    child: Text('3', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          onPressed: _showNotificationsSheet,
-        ),
+        // Notification bell
+        NotificationBell(isPregnant: _isPregnant),
         Padding(
           padding: const EdgeInsets.only(right: AppConstants.paddingL),
           child: GestureDetector(
             onTap: _goToProfile,
-            child: BabyAvatar(name: 'Mom', size: 34),
+            child: BabyAvatar(name: baby.name, size: 34),
           ),
         ),
       ],
@@ -444,18 +386,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── Today for you ─────────────────────────────────────────────────────────
 
   Widget _buildTodayForYou() {
+    final tipsState = ref.watch(tipsProvider);
+
+    // Load tips on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (tipsState.tips.isEmpty && !tipsState.isLoading) {
+        final baby = ref.read(babyProvider).baby ?? sampleBaby;
+        ref.read(tipsProvider.notifier).loadTips(
+          ageInMonths: baby.ageInMonths > 0 ? baby.ageInMonths : 8,
+          isPregnant: _isPregnant,
+          pregnancyWeek: _isPregnant
+              ? ref.read(pregnancyProvider).currentWeek
+              : 1,
+        );
+      }
+    });
+
+    // Use AI tips if loaded, otherwise use static fallback
+    final tips = tipsState.tips.isNotEmpty
+        ? tipsState.tips.map((t) => {'text': t.text, 'emoji': t.emoji}).toList()
+        : _activeTips.map((t) => {'text': t['text']!, 'emoji': '💡'}).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Today for you', actionLabel: 'See All', onAction: _goToLearn),
+        SectionHeader(
+          title: 'Today for you',
+          actionLabel: 'See All',
+          onAction: _goToLearn,
+        ),
         const SizedBox(height: AppConstants.paddingM),
         AspectRatio(
           aspectRatio: 2.6,
           child: PageView.builder(
             controller: _tipController,
-            itemCount: _activeTips.length,
+            itemCount: tips.length,
             itemBuilder: (context, index) {
-              final tip = _activeTips[index];
+              final tip = tips[index];
+              final imageUrl = index < _activeTips.length
+                  ? _activeTips[index]['image']!
+                  : _activeTips[0]['image']!;
               return GestureDetector(
                 onTap: _goToLearn,
                 child: AppCard(
@@ -472,23 +442,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               Container(
                                 padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
-                                  color: _isPregnant ? const Color(0xFFFFE4EC) : AppColors.accentOrangeLight,
+                                  color: _isPregnant
+                                      ? const Color(0xFFFFE4EC)
+                                      : AppColors.accentOrangeLight,
                                   borderRadius: BorderRadius.circular(7),
                                 ),
-                                child: Icon(
-                                  _isPregnant ? Icons.favorite_rounded : Icons.lightbulb_rounded,
-                                  color: _isPregnant ? const Color(0xFFE8405A) : AppColors.accentOrange,
-                                  size: 15,
-                                ),
+                                child: tipsState.isLoading && tipsState.tips.isEmpty
+                                    ? const SizedBox(
+                                        width: 15, height: 15,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          color: AppColors.primary,
+                                        ),
+                                      )
+                                    : Text(
+                                        tip['emoji'] ?? '💡',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
                               ),
                               const SizedBox(height: 5),
-                              Text('Did you know?',
-                                  style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+                              Text(
+                                tipsState.tips.isNotEmpty ? '✨ AI Tip' : 'Did you know?',
+                                style: AppTextStyles.labelMedium.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
                               const SizedBox(height: 3),
                               Flexible(
-                                child: Text(tip['text']!,
-                                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary),
-                                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                                child: Text(
+                                  tip['text'] ?? '',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
@@ -502,11 +490,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: AspectRatio(
                           aspectRatio: 0.75,
                           child: Image.network(
-                            tip['image']!,
+                            imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
                               color: AppColors.primaryLight,
-                              child: const Center(child: Text('👶', style: TextStyle(fontSize: 32))),
+                              child: const Center(
+                                  child: Text('👶',
+                                      style: TextStyle(fontSize: 32))),
                             ),
                           ),
                         ),
@@ -522,9 +512,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Center(
           child: SmoothPageIndicator(
             controller: _tipController,
-            count: _activeTips.length,
+            count: tips.length,
             effect: const WormEffect(
-              dotHeight: 6, dotWidth: 6,
+              dotHeight: 6,
+              dotWidth: 6,
               activeDotColor: AppColors.primary,
               dotColor: AppColors.primaryLight,
             ),
@@ -848,35 +839,3 @@ class _MilestoneProgressRow extends StatelessWidget {
   }
 }
 
-class _NotifTile extends StatelessWidget {
-  final String emoji, title, subtitle, time;
-  const _NotifTile({required this.emoji, required this.title, required this.subtitle, required this.time});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppConstants.paddingM),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
-            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
-          ),
-          const SizedBox(width: AppConstants.paddingM),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppTextStyles.titleMedium),
-                Text(subtitle, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
-          Text(time, style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint)),
-        ],
-      ),
-    );
-  }
-}

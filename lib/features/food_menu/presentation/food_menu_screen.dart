@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/notifications_sheet.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/baby_avatar.dart';
 import '../../../core/providers/baby_provider.dart';
@@ -114,24 +115,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
           icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary, size: 24),
           onPressed: () {},
         ),
-        IconButton(
-          icon: Stack(
-            children: [
-              const Icon(Icons.notifications_outlined, color: AppColors.textPrimary, size: 24),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
-                  child: const Center(child: Text('3', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700))),
-                ),
-              ),
-            ],
-          ),
-          onPressed: () {},
-        ),
+        const NotificationBell(),
         const SizedBox(width: 4),
       ],
     );

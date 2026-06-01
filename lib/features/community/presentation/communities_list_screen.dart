@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/community_provider.dart';
+import '../../../core/widgets/notifications_sheet.dart';
 import 'community_screen.dart';
 
 // ── Community model ───────────────────────────────────────────────────────────
@@ -330,11 +331,7 @@ class _CommunitiesListScreenState
       automaticallyImplyLeading: false,
       title: Text('Community', style: AppTextStyles.headlineMedium),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined,
-              color: AppColors.textPrimary, size: 22),
-          onPressed: () {},
-        ),
+        const NotificationBell(),
       ],
     );
   }

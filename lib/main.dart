@@ -33,8 +33,13 @@ Future<void> main() async {
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Enable edge-to-edge with proper insets
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   runApp(
     const ProviderScope(
@@ -52,6 +57,16 @@ class MotherHoodApp extends StatelessWidget {
       title: 'MotherHood',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      builder: (context, child) => MediaQuery(
+        // Clamp text scale to prevent layout breaks
+        data: MediaQuery.of(context).copyWith(
+          textScaler: MediaQuery.of(context).textScaler.clamp(
+            minScaleFactor: 0.85,
+            maxScaleFactor: 1.15,
+          ),
+        ),
+        child: child!,
+      ),
       home: const SplashScreen(),
     );
   }

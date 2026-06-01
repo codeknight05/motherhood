@@ -9,6 +9,7 @@ import '../../../core/providers/community_provider.dart';
 import '../../../core/services/community_service.dart';
 import '../../../core/services/cloudinary_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/widgets/notifications_sheet.dart';
 import 'communities_list_screen.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -26,7 +27,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   late final TabController _tabController;
 
   static const _tabs = [
-    'All Posts', 'Questions', 'Wins & Milestones', 'Rants & Raves', 'Resources'
+    'All Posts',
+    'Questions',
+    'Wins & Milestones',
+    'Polls',
+    'Resources',
   ];
 
   CommunityInfo get _info => widget.community;
@@ -49,11 +54,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
   List<CommunityPost> _postsForTab(List<CommunityPost> all, int index) {
     switch (index) {
-      case 1: return all.where((p) => p.tag == 'Question').toList();
-      case 2: return all.where((p) => p.tag == 'Win & Milestone').toList();
-      case 3: return all.where((p) => p.tag == 'Rant & Rave').toList();
-      case 4: return all.where((p) => p.tag == 'Resource').toList();
-      default: return all;
+      case 1:
+        return all.where((p) => p.tag == 'Question').toList();
+      case 2:
+        return all.where((p) => p.tag == 'Win & Milestone').toList();
+      case 3:
+        return all.where((p) => p.tag == 'Poll').toList();
+      case 4:
+        return all.where((p) => p.tag == 'Resource').toList();
+      default:
+        return all;
     }
   }
 
@@ -81,13 +91,37 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreatePost(context),
+        onPressed: () {
+          final cs = ref.read(communityProvider);
+          if (!cs.isJoined(_info.id)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Join ${_info.name} to post'),
+                backgroundColor: AppColors.primary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+                action: SnackBarAction(
+                  label: 'Join',
+                  textColor: Colors.white,
+                  onPressed: () => ref
+                      .read(communityProvider.notifier)
+                      .toggleJoin(_info.id),
+                ),
+              ),
+            );
+            return;
+          }
+          _showCreatePost(context);
+        },
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 4,
         icon: const Icon(Icons.edit_rounded, size: 18),
-        label: Text('Create Post',
-            style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+        label: Text(
+          'Create Post',
+          style: AppTextStyles.labelLarge.copyWith(color: Colors.white),
+        ),
       ),
     );
   }
@@ -95,10 +129,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   Widget _buildFeedHeader() {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHeroBanner(),
-        _buildQuickActions(),
-      ],
+      children: [_buildHeroBanner(), _buildQuickActions()],
     );
   }
 
@@ -112,17 +143,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       scrolledUnderElevation: 1,
       shadowColor: AppColors.divider,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded,
-            color: AppColors.textPrimary),
+        icon: const Icon(
+          Icons.arrow_back_rounded,
+          color: AppColors.textPrimary,
+        ),
         onPressed: () => Navigator.pop(context),
       ),
       title: Text(_info.name, style: AppTextStyles.headlineMedium),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined,
-              color: AppColors.textPrimary, size: 22),
-          onPressed: () {},
-        ),
+        const NotificationBell(),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
@@ -135,14 +164,17 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             indicatorColor: AppColors.primary,
             indicatorWeight: 2.5,
             dividerColor: AppColors.divider,
-            labelStyle: AppTextStyles.titleMedium
-                .copyWith(color: AppColors.primary),
-            unselectedLabelStyle: AppTextStyles.titleMedium
-                .copyWith(color: AppColors.textSecondary),
+            labelStyle: AppTextStyles.titleMedium.copyWith(
+              color: AppColors.primary,
+            ),
+            unselectedLabelStyle: AppTextStyles.titleMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textSecondary,
             padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.paddingL),
+              horizontal: AppConstants.paddingL,
+            ),
             tabs: _tabs.map((t) => Tab(text: t)).toList(),
           ),
         ),
@@ -157,8 +189,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
     return Container(
       margin: const EdgeInsets.fromLTRB(
-        AppConstants.paddingL, AppConstants.paddingS,
-        AppConstants.paddingL, 0,
+        AppConstants.paddingL,
+        AppConstants.paddingS,
+        AppConstants.paddingL,
+        0,
       ),
       padding: const EdgeInsets.all(AppConstants.paddingL),
       decoration: BoxDecoration(
@@ -173,18 +207,24 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Hello, Mama! 👋',
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(color: _info.color)),
+                Text(
+                  'Hello, Mama! 👋',
+                  style: AppTextStyles.bodyMedium.copyWith(color: _info.color),
+                ),
                 const SizedBox(height: 2),
-                Text(_info.name,
-                    style: AppTextStyles.headlineLarge
-                        .copyWith(color: AppColors.textPrimary)),
+                Text(
+                  _info.name,
+                  style: AppTextStyles.headlineLarge.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 6),
-                Text(_info.description,
-                    style: AppTextStyles.bodySmall,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  _info.description,
+                  style: AppTextStyles.bodySmall,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -194,8 +234,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.people_outline_rounded,
-                            size: 14, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.people_outline_rounded,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           memberCount > 0
@@ -209,15 +252,20 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                            width: 7, height: 7,
-                            decoration: const BoxDecoration(
-                              color: AppColors.accentGreen,
-                              shape: BoxShape.circle,
-                            )),
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: AppColors.accentGreen,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                         const SizedBox(width: 4),
-                        Text('${_info.activeCount} active',
-                            style: AppTextStyles.labelSmall
-                                .copyWith(color: AppColors.accentGreen)),
+                        Text(
+                          '${_info.activeCount} active',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.accentGreen,
+                          ),
+                        ),
                       ],
                     ),
                     GestureDetector(
@@ -227,17 +275,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: isJoined
-                              ? AppColors.background
-                              : _info.color,
+                          color: isJoined ? AppColors.background : _info.color,
                           borderRadius: BorderRadius.circular(
-                              AppConstants.radiusFull),
+                            AppConstants.radiusFull,
+                          ),
                           border: Border.all(
-                            color: isJoined
-                                ? AppColors.divider
-                                : _info.color,
+                            color: isJoined ? AppColors.divider : _info.color,
                           ),
                         ),
                         child: Text(
@@ -258,15 +305,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           ),
           const SizedBox(width: 8),
           Container(
-            width: 80, height: 80,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
               color: _info.color.withValues(alpha: 0.08),
-              borderRadius:
-                  BorderRadius.circular(AppConstants.radiusM),
+              borderRadius: BorderRadius.circular(AppConstants.radiusM),
             ),
             child: Center(
-              child: Text(_info.emoji,
-                  style: const TextStyle(fontSize: 40)),
+              child: Text(_info.emoji, style: const TextStyle(fontSize: 40)),
             ),
           ),
         ],
@@ -276,11 +322,27 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
   Widget _buildQuickActions() {
     final actions = [
-      {'icon': Icons.waving_hand_rounded,  'label': 'Introduce\nyourself', 'tag': 'General'},
-      {'icon': Icons.help_outline_rounded, 'label': 'Ask a\nquestion',    'tag': 'Question'},
-      {'icon': Icons.edit_note_rounded,    'label': 'Share an\nupdate',   'tag': 'Win & Milestone'},
-      {'icon': Icons.bar_chart_rounded,    'label': 'Poll',               'tag': 'Poll'},
-      {'icon': Icons.menu_book_rounded,    'label': 'Resources',          'tag': 'Resource'},
+      {
+        'icon': Icons.waving_hand_rounded,
+        'label': 'Introduce\nyourself',
+        'tag': 'General',
+      },
+      {
+        'icon': Icons.help_outline_rounded,
+        'label': 'Ask a\nquestion',
+        'tag': 'Question',
+      },
+      {
+        'icon': Icons.edit_note_rounded,
+        'label': 'Share an\nupdate',
+        'tag': 'Win & Milestone',
+      },
+      {'icon': Icons.bar_chart_rounded, 'label': 'Poll', 'tag': 'Poll'},
+      {
+        'icon': Icons.menu_book_rounded,
+        'label': 'Resources',
+        'tag': 'Resource',
+      },
     ];
 
     return Padding(
@@ -293,25 +355,30 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         children: actions.map((a) {
           return Expanded(
             child: GestureDetector(
-              onTap: () => _showCreatePost(context, preselectedTag: a['tag'] as String),
+              onTap: () =>
+                  _showCreatePost(context, preselectedTag: a['tag'] as String),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 44, height: 44,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: AppColors.primaryLight,
-                      borderRadius:
-                          BorderRadius.circular(AppConstants.radiusM),
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
                     ),
-                    child: Icon(a['icon'] as IconData,
-                        color: AppColors.primary, size: 20),
+                    child: Icon(
+                      a['icon'] as IconData,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     a['label'] as String,
-                    style: AppTextStyles.labelSmall
-                        .copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -339,13 +406,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 .read(postsProviderFamily(_info.id).notifier)
                 .createPost(content: content, tag: tag, imageUrl: imageUrl);
             if (ok && mounted) {
-              messenger.showSnackBar(SnackBar(
-                content: const Text('Poll posted to the community!'),
-                backgroundColor: AppColors.primary,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM)),
-              ));
+              messenger.showSnackBar(
+                SnackBar(
+                  content: const Text('Poll posted to the community!'),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
+                ),
+              );
             }
           },
         ),
@@ -372,8 +442,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 backgroundColor: AppColors.primary,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.radiusM)),
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                ),
               ),
             );
           }
@@ -403,7 +473,9 @@ class _PostFeed extends ConsumerWidget {
     if (isLoading && posts.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
-            color: AppColors.primary, strokeWidth: 2.5),
+          color: AppColors.primary,
+          strokeWidth: 2.5,
+        ),
       );
     }
 
@@ -420,22 +492,25 @@ class _PostFeed extends ConsumerWidget {
                 const SizedBox(height: AppConstants.paddingL),
                 Text('No posts yet', style: AppTextStyles.headlineSmall),
                 const SizedBox(height: 6),
-                Text('Be the first to post here!',
-                    style: AppTextStyles.bodyMedium),
+                Text(
+                  'Be the first to post here!',
+                  style: AppTextStyles.bodyMedium,
+                ),
               ],
             ),
           ),
         )
       else
-        ...posts.map((p) => _PostCard(
-              post: p,
-              communityId: communityId,
-            )),
+        ...posts.map((p) => _PostCard(post: p, communityId: communityId)),
     ];
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
-          AppConstants.paddingL, 0, AppConstants.paddingL, 100),
+        AppConstants.paddingL,
+        0,
+        AppConstants.paddingL,
+        100,
+      ),
       itemCount: items.length,
       separatorBuilder: (_, i) {
         if (header != null && i == 0) return const SizedBox.shrink();
@@ -457,7 +532,6 @@ class _PostCard extends ConsumerWidget {
   static const _tagColors = {
     'Question': Color(0xFF7C4DFF),
     'Win & Milestone': Color(0xFFFF80AB),
-    'Rant & Rave': Color(0xFFFF6D00),
     'Resource': Color(0xFF00C853),
     'Poll': Color(0xFF0288D1),
     'General': AppColors.primary,
@@ -478,12 +552,18 @@ class _PostCard extends ConsumerWidget {
           if (post.isPinned) ...[
             Row(
               children: [
-                const Icon(Icons.push_pin_rounded,
-                    size: 13, color: AppColors.primary),
+                const Icon(
+                  Icons.push_pin_rounded,
+                  size: 13,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 4),
-                Text('Pinned',
-                    style: AppTextStyles.labelSmall
-                        .copyWith(color: AppColors.primary)),
+                Text(
+                  'Pinned',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -499,29 +579,44 @@ class _PostCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(post.authorName,
-                        style: AppTextStyles.titleMedium),
-                    Text(post.timeAgo,
-                        style: AppTextStyles.labelSmall),
+                    Text(post.authorName, style: AppTextStyles.titleMedium),
+                    Text(post.timeAgo, style: AppTextStyles.labelSmall),
                   ],
                 ),
               ),
               if (isMyPost)
                 GestureDetector(
                   onTap: () => _confirmDelete(context, ref),
-                  child: const Icon(Icons.more_horiz_rounded,
-                      size: 18, color: AppColors.textHint),
+                  child: const Icon(
+                    Icons.more_horiz_rounded,
+                    size: 18,
+                    color: AppColors.textHint,
+                  ),
                 )
               else
-                const Icon(Icons.more_horiz_rounded,
-                    size: 18, color: AppColors.textHint),
+                const Icon(
+                  Icons.more_horiz_rounded,
+                  size: 18,
+                  color: AppColors.textHint,
+                ),
             ],
           ),
           const SizedBox(height: AppConstants.paddingM),
           // Content
-          Text(post.content,
-              style: AppTextStyles.bodyMedium
-                  .copyWith(color: AppColors.textPrimary)),
+          if (post.tag == 'Poll')
+            _PollContent(
+              post: post,
+              onVote: (optionIndex) => ref
+                  .read(postsProviderFamily(communityId).notifier)
+                  .votePoll(post.id, optionIndex),
+            )
+          else
+            Text(
+              post.content,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
           // Post image
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
             const SizedBox(height: AppConstants.paddingM),
@@ -538,15 +633,20 @@ class _PostCard extends ConsumerWidget {
                         color: AppColors.primaryLight,
                         child: const Center(
                           child: CircularProgressIndicator(
-                              color: AppColors.primary, strokeWidth: 2),
+                            color: AppColors.primary,
+                            strokeWidth: 2,
+                          ),
                         ),
                       ),
                 errorBuilder: (_, __, ___) => Container(
                   height: 120,
                   color: AppColors.primaryLight,
                   child: const Center(
-                    child: Icon(Icons.broken_image_rounded,
-                        color: AppColors.primaryMid, size: 32),
+                    child: Icon(
+                      Icons.broken_image_rounded,
+                      color: AppColors.primaryMid,
+                      size: 32,
+                    ),
                   ),
                 ),
               ),
@@ -556,18 +656,18 @@ class _PostCard extends ConsumerWidget {
           if (post.tag != null) ...[
             const SizedBox(height: AppConstants.paddingS),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: tagColor.withValues(alpha: 0.12),
-                borderRadius:
-                    BorderRadius.circular(AppConstants.radiusFull),
+                borderRadius: BorderRadius.circular(AppConstants.radiusFull),
               ),
-              child: Text(post.tag!,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: tagColor,
-                    fontWeight: FontWeight.w700,
-                  )),
+              child: Text(
+                post.tag!,
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: tagColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
           const SizedBox(height: AppConstants.paddingM),
@@ -594,9 +694,12 @@ class _PostCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text('${post.likeCount}',
-                        style: AppTextStyles.labelMedium
-                            .copyWith(color: AppColors.textSecondary)),
+                    Text(
+                      '${post.likeCount}',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -605,15 +708,19 @@ class _PostCard extends ConsumerWidget {
                 onTap: () => _showReplies(context),
                 child: Row(
                   children: [
-                    const Icon(Icons.chat_bubble_outline_rounded,
-                        size: 16, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       post.commentCount == 1
                           ? '1 reply'
                           : '${post.commentCount} replies',
-                      style: AppTextStyles.labelMedium
-                          .copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -638,10 +745,7 @@ class _PostCard extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _RepliesSheet(
-        communityId: communityId,
-        postId: post.id,
-      ),
+      builder: (_) => _RepliesSheet(communityId: communityId, postId: post.id),
     );
   }
 
@@ -661,8 +765,7 @@ class _PostCard extends ConsumerWidget {
           children: [
             Text('Delete Post?', style: AppTextStyles.headlineMedium),
             const SizedBox(height: 8),
-            Text('This cannot be undone.',
-                style: AppTextStyles.bodyMedium),
+            Text('This cannot be undone.', style: AppTextStyles.bodyMedium),
             const SizedBox(height: AppConstants.paddingXL),
             Row(
               children: [
@@ -697,6 +800,175 @@ class _PostCard extends ConsumerWidget {
   }
 }
 
+class _PollContent extends StatelessWidget {
+  final CommunityPost post;
+  final ValueChanged<int> onVote;
+
+  const _PollContent({required this.post, required this.onVote});
+
+  @override
+  Widget build(BuildContext context) {
+    final poll = _ParsedPoll.tryParse(post.content);
+    if (poll == null) {
+      return Text(
+        post.content,
+        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+      );
+    }
+
+    final totalVotes = post.pollVoteCounts.values.fold<int>(
+      0,
+      (total, count) => total + count,
+    );
+    final hasVoted = post.myPollVote != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.bar_chart_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                poll.question,
+                style: AppTextStyles.titleMedium.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppConstants.paddingM),
+        ...List.generate(poll.options.length, (index) {
+          final count = post.pollVoteCounts[index] ?? 0;
+          final percent = totalVotes == 0 ? 0.0 : count / totalVotes;
+          final isSelected = post.myPollVote == index;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppConstants.paddingS),
+            child: GestureDetector(
+              onTap: () => onVote(index),
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : AppColors.divider,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    if (hasVoted)
+                      Positioned.fill(
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: percent.clamp(0.0, 1.0),
+                          child: ColoredBox(
+                            color:
+                                (isSelected
+                                        ? AppColors.primary
+                                        : AppColors.primaryMid)
+                                    .withValues(alpha: 0.16),
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 11,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected
+                                ? Icons.radio_button_checked_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                            size: 18,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textHint,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              poll.options[index],
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (hasVoted) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(percent * 100).round()}%',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+        Text(
+          totalVotes == 1 ? '1 vote' : '$totalVotes votes',
+          style: AppTextStyles.labelSmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ParsedPoll {
+  final String question;
+  final List<String> options;
+
+  const _ParsedPoll({required this.question, required this.options});
+
+  static _ParsedPoll? tryParse(String content) {
+    final lines = content
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    if (lines.length < 3) return null;
+
+    final question = lines.first.replaceFirst(RegExp(r'^📊\s*'), '').trim();
+    final options = <String>[];
+    final optionPattern = RegExp(r'^\d+[\.)]\s+(.+)$');
+
+    for (final line in lines.skip(1)) {
+      final match = optionPattern.firstMatch(line);
+      if (match == null) return null;
+      options.add(match.group(1)!.trim());
+    }
+
+    if (question.isEmpty || options.length < 2) return null;
+    return _ParsedPoll(question: question, options: options);
+  }
+}
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
@@ -709,23 +981,31 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipOval(
       child: url != null && url!.isNotEmpty
-          ? Image.network(url!, width: size, height: size, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _fallback())
+          ? Image.network(
+              url!,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _fallback(),
+            )
           : _fallback(),
     );
   }
 
   Widget _fallback() => Container(
-        width: size, height: size,
-        color: AppColors.primaryLight,
-        child: Center(
-          child: Text(
-            name.isNotEmpty ? name[0].toUpperCase() : '👩',
-            style: AppTextStyles.titleMedium
-                .copyWith(color: AppColors.primary, fontSize: size * 0.42),
-          ),
+    width: size,
+    height: size,
+    color: AppColors.primaryLight,
+    child: Center(
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '👩',
+        style: AppTextStyles.titleMedium.copyWith(
+          color: AppColors.primary,
+          fontSize: size * 0.42,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 // ── Replies ──────────────────────────────────────────────────────────────────
@@ -833,10 +1113,7 @@ class _RepliesSheet extends ConsumerStatefulWidget {
   final String communityId;
   final String postId;
 
-  const _RepliesSheet({
-    required this.communityId,
-    required this.postId,
-  });
+  const _RepliesSheet({required this.communityId, required this.postId});
 
   @override
   ConsumerState<_RepliesSheet> createState() => _RepliesSheetState();
@@ -854,7 +1131,12 @@ class _RepliesSheetState extends ConsumerState<_RepliesSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxSheetHeight =
+        (screenHeight - bottomInset - AppConstants.paddingL * 2)
+            .clamp(260.0, screenHeight * 0.82)
+            .toDouble();
     final postsState = ref.watch(postsProviderFamily(widget.communityId));
     CommunityPost? post;
     for (final candidate in postsState.posts) {
@@ -865,66 +1147,66 @@ class _RepliesSheetState extends ConsumerState<_RepliesSheet> {
     }
     final replies = post?.replies ?? const <CommunityReply>[];
 
-    return Container(
-      margin: const EdgeInsets.all(AppConstants.paddingL),
-      padding: EdgeInsets.only(
-        left: AppConstants.paddingXL,
-        right: AppConstants.paddingXL,
-        top: AppConstants.paddingXL,
-        bottom: AppConstants.paddingL + bottomInset,
-      ),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.82,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
-      ),
-      child: post == null
-          ? const SizedBox.shrink()
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.divider,
-                      borderRadius: BorderRadius.circular(2),
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        margin: const EdgeInsets.all(AppConstants.paddingL),
+        padding: const EdgeInsets.only(
+          left: AppConstants.paddingXL,
+          right: AppConstants.paddingXL,
+          top: AppConstants.paddingXL,
+          bottom: AppConstants.paddingL,
+        ),
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+        ),
+        child: post == null
+            ? const SizedBox.shrink()
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.divider,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: AppConstants.paddingL),
-                Text('Replies', style: AppTextStyles.headlineMedium),
-                const SizedBox(height: AppConstants.paddingM),
-                _OriginalPostSummary(post: post),
-                const SizedBox(height: AppConstants.paddingM),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.34,
-                  ),
-                  child: replies.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 28),
-                          child: Center(
-                            child: Text(
-                              'No replies yet',
-                              style: AppTextStyles.bodyMedium,
+                  const SizedBox(height: AppConstants.paddingL),
+                  Text('Replies', style: AppTextStyles.headlineMedium),
+                  const SizedBox(height: AppConstants.paddingM),
+                  _OriginalPostSummary(post: post),
+                  const SizedBox(height: AppConstants.paddingM),
+                  Flexible(
+                    child: replies.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 28),
+                            child: Center(
+                              child: Text(
+                                'No replies yet',
+                                style: AppTextStyles.bodyMedium,
+                              ),
                             ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: replies.length,
+                            itemBuilder: (_, i) => _ReplyRow(reply: replies[i]),
                           ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: replies.length,
-                          itemBuilder: (_, i) =>
-                              _ReplyRow(reply: replies[i]),
-                        ),
-                ),
-                const SizedBox(height: AppConstants.paddingM),
-                _buildComposer(post),
-              ],
-            ),
+                  ),
+                  const SizedBox(height: AppConstants.paddingM),
+                  _buildComposer(post),
+                ],
+              ),
+      ),
     );
   }
 
@@ -941,8 +1223,9 @@ class _RepliesSheetState extends ConsumerState<_RepliesSheet> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Reply to ${post.authorName}...',
-              hintStyle: AppTextStyles.bodyMedium
-                  .copyWith(color: AppColors.textHint),
+              hintStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textHint,
+              ),
               filled: true,
               fillColor: AppColors.background,
               counterText: '',
@@ -951,8 +1234,9 @@ class _RepliesSheetState extends ConsumerState<_RepliesSheet> {
                 borderSide: BorderSide.none,
               ),
             ),
-            style: AppTextStyles.bodyMedium
-                .copyWith(color: AppColors.textPrimary),
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         const SizedBox(width: AppConstants.paddingS),
@@ -979,8 +1263,9 @@ class _RepliesSheetState extends ConsumerState<_RepliesSheet> {
                         backgroundColor: AppColors.error,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppConstants.radiusM),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.radiusM,
+                          ),
                         ),
                       ),
                     );
@@ -1025,11 +1310,7 @@ class _OriginalPostSummary extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Avatar(
-            name: post.authorName,
-            url: post.authorAvatarUrl,
-            size: 34,
-          ),
+          _Avatar(name: post.authorName, url: post.authorAvatarUrl, size: 34),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -1059,7 +1340,8 @@ class _OriginalPostSummary extends StatelessWidget {
 class _CreatePostSheet extends StatefulWidget {
   final String communityId;
   final String? preselectedTag;
-  final Future<void> Function(String content, String? tag, String? imageUrl) onPost;
+  final Future<void> Function(String content, String? tag, String? imageUrl)
+  onPost;
 
   const _CreatePostSheet({
     required this.communityId,
@@ -1086,7 +1368,11 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   }
 
   static const _tags = [
-    'Question', 'Win & Milestone', 'Rant & Rave', 'Resource', 'General'
+    'Question',
+    'Win & Milestone',
+    'Poll',
+    'Resource',
+    'General',
   ];
 
   @override
@@ -1125,222 +1411,275 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      margin: const EdgeInsets.all(AppConstants.paddingL),
-      padding: EdgeInsets.only(
-        left: AppConstants.paddingXL,
-        right: AppConstants.paddingXL,
-        top: AppConstants.paddingXL,
-        bottom: AppConstants.paddingXL + bottomInset,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppConstants.paddingL),
-            Text('Create Post', style: AppTextStyles.headlineMedium),
-            const SizedBox(height: AppConstants.paddingXL),
-            // Text input
-            TextField(
-              controller: _controller,
-              maxLines: 4,
-              maxLength: 500,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'Share something with the community...',
-                hintStyle: AppTextStyles.bodyMedium
-                    .copyWith(color: AppColors.textHint),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                  borderSide: BorderSide.none,
-                ),
-                counterStyle: AppTextStyles.labelSmall,
-              ),
-              style: AppTextStyles.bodyMedium
-                  .copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: AppConstants.paddingM),
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxSheetHeight =
+        (screenHeight - bottomInset - AppConstants.paddingL * 2)
+            .clamp(260.0, screenHeight * 0.9)
+            .toDouble();
 
-            // Image preview
-            if (_imageFile != null) ...[
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                    child: Image.file(
-                      _imageFile!,
-                      width: double.infinity,
-                      height: 180,
-                      fit: BoxFit.cover,
-                    ),
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        margin: const EdgeInsets.all(AppConstants.paddingL),
+        padding: const EdgeInsets.all(AppConstants.paddingXL),
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  Positioned(
-                    top: 8, right: 8,
-                    child: GestureDetector(
-                      onTap: () => setState(() => _imageFile = null),
-                      child: Container(
-                        width: 28, height: 28,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close_rounded,
-                            color: Colors.white, size: 16),
+                ),
+              ),
+              const SizedBox(height: AppConstants.paddingL),
+              Text('Create Post', style: AppTextStyles.headlineMedium),
+              const SizedBox(height: AppConstants.paddingXL),
+              // Text input
+              TextField(
+                controller: _controller,
+                maxLines: 4,
+                maxLength: 500,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Share something with the community...',
+                  hintStyle: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textHint,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderSide: BorderSide.none,
+                  ),
+                  counterStyle: AppTextStyles.labelSmall,
+                ),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppConstants.paddingM),
+
+              // Image preview
+              if (_imageFile != null) ...[
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                      child: Image.file(
+                        _imageFile!,
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover,
                       ),
                     ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _imageFile = null),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppConstants.paddingM),
+              ],
+
+              // Image picker buttons
+              Row(
+                children: [
+                  _ImagePickerBtn(
+                    icon: Icons.photo_library_rounded,
+                    label: 'Gallery',
+                    onTap: _pickImage,
+                  ),
+                  const SizedBox(width: AppConstants.paddingS),
+                  _ImagePickerBtn(
+                    icon: Icons.camera_alt_rounded,
+                    label: 'Camera',
+                    onTap: _takePhoto,
                   ),
                 ],
               ),
-              const SizedBox(height: AppConstants.paddingM),
-            ],
 
-            // Image picker buttons
-            Row(
-              children: [
-                _ImagePickerBtn(
-                  icon: Icons.photo_library_rounded,
-                  label: 'Gallery',
-                  onTap: _pickImage,
-                ),
-                const SizedBox(width: AppConstants.paddingS),
-                _ImagePickerBtn(
-                  icon: Icons.camera_alt_rounded,
-                  label: 'Camera',
-                  onTap: _takePhoto,
+              if (_uploadError != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _uploadError!,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.error,
+                  ),
                 ),
               ],
-            ),
 
-            if (_uploadError != null) ...[
-              const SizedBox(height: 6),
-              Text(_uploadError!,
-                  style: AppTextStyles.labelSmall
-                      .copyWith(color: AppColors.error)),
-            ],
-
-            const SizedBox(height: AppConstants.paddingL),
-            Text('Tag your post', style: AppTextStyles.titleMedium),
-            const SizedBox(height: AppConstants.paddingS),
-            Wrap(
-              spacing: AppConstants.paddingS,
-              runSpacing: AppConstants.paddingS,
-              children: _tags.map((tag) {
-                final isSelected = _selectedTag == tag;
-                return GestureDetector(
-                  onTap: () => setState(
-                      () => _selectedTag = isSelected ? null : tag),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.background,
-                      borderRadius: BorderRadius.circular(
-                          AppConstants.radiusFull),
-                      border: Border.all(
+              const SizedBox(height: AppConstants.paddingL),
+              Text('Tag your post', style: AppTextStyles.titleMedium),
+              const SizedBox(height: AppConstants.paddingS),
+              Wrap(
+                spacing: AppConstants.paddingS,
+                runSpacing: AppConstants.paddingS,
+                children: _tags.map((tag) {
+                  final isSelected = _selectedTag == tag;
+                  return GestureDetector(
+                    onTap: () {
+                      if (tag == 'Poll') {
+                        final navigator = Navigator.of(context);
+                        final navigatorContext = navigator.context;
+                        navigator.pop();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!navigator.mounted) return;
+                          showModalBottomSheet(
+                            context: navigatorContext,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => _PollSheet(
+                              communityId: widget.communityId,
+                              onPost: widget.onPost,
+                            ),
+                          );
+                        });
+                        return;
+                      }
+                      setState(() => _selectedTag = isSelected ? null : tag);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
                         color: isSelected
                             ? AppColors.primary
-                            : AppColors.divider,
-                        width: 1.5,
+                            : AppColors.background,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusFull,
+                        ),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.divider,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        tag,
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.textPrimary,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      tag,
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: isSelected
-                            ? Colors.white
-                            : AppColors.textPrimary,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: AppConstants.paddingXXL),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _controller.text.trim().isEmpty || _isPosting
-                    ? null
-                    : () async {
-                        setState(() {
-                          _isPosting = true;
-                          _uploadError = null;
-                        });
-                        final nav = Navigator.of(context);
-                        String? imageUrl;
-                        // Upload image to Cloudinary if selected
-                        if (_imageFile != null) {
-                          try {
-                            final userId = SupabaseService.currentUser?.id ?? 'community';
-                            final url = await CloudinaryService.uploadMemoryPhoto(
-                              file: _imageFile!,
-                              userId: userId,
-                              babyId: 'community_posts',
-                            );
-                            imageUrl = url;
-                          } catch (e) {
-                            if (mounted) {
-                              setState(() {
-                                _isPosting = false;
-                                _uploadError = 'Image upload failed. Try again.';
-                              });
-                            }
-                            return;
-                          }
-                        }
-                        await widget.onPost(
-                            _controller.text.trim(), _selectedTag, imageUrl);
-                        if (mounted) nav.pop();
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.primaryMid,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.radiusM),
-                  ),
-                  elevation: 0,
-                ),
-                child: _isPosting
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : Text(
-                        _imageFile != null
-                            ? 'Post with Photo'
-                            : 'Post to Community',
-                        style: AppTextStyles.titleMedium
-                            .copyWith(color: Colors.white)),
+                  );
+                }).toList(),
               ),
-            ),
-          ],
+              const SizedBox(height: AppConstants.paddingXXL),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _controller.text.trim().isEmpty || _isPosting
+                      ? null
+                      : () async {
+                          setState(() {
+                            _isPosting = true;
+                            _uploadError = null;
+                          });
+                          final nav = Navigator.of(context);
+                          String? imageUrl;
+                          // Upload image to Cloudinary if selected
+                          if (_imageFile != null) {
+                            try {
+                              final userId =
+                                  SupabaseService.currentUser?.id ??
+                                  'community';
+                              final url =
+                                  await CloudinaryService.uploadMemoryPhoto(
+                                    file: _imageFile!,
+                                    userId: userId,
+                                    babyId: 'community_posts',
+                                  );
+                              imageUrl = url;
+                            } catch (e) {
+                              if (mounted) {
+                                setState(() {
+                                  _isPosting = false;
+                                  _uploadError =
+                                      'Image upload failed. Try again.';
+                                });
+                              }
+                              return;
+                            }
+                          }
+                          await widget.onPost(
+                            _controller.text.trim(),
+                            _selectedTag,
+                            imageUrl,
+                          );
+                          if (mounted) nav.pop();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.primaryMid,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isPosting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          _imageFile != null
+                              ? 'Post with Photo'
+                              : 'Post to Community',
+                          style: AppTextStyles.titleMedium.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1351,7 +1690,8 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
 
 class _PollSheet extends StatefulWidget {
   final String communityId;
-  final Future<void> Function(String content, String? tag, String? imageUrl) onPost;
+  final Future<void> Function(String content, String? tag, String? imageUrl)
+  onPost;
 
   const _PollSheet({required this.communityId, required this.onPost});
 
@@ -1397,180 +1737,219 @@ class _PollSheetState extends State<_PollSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      margin: const EdgeInsets.all(AppConstants.paddingL),
-      padding: EdgeInsets.only(
-        left: AppConstants.paddingXL,
-        right: AppConstants.paddingXL,
-        top: AppConstants.paddingXL,
-        bottom: AppConstants.paddingXL + bottomInset,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppConstants.paddingL),
-            Row(
-              children: [
-                Container(
-                  width: 36, height: 36,
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxSheetHeight =
+        (screenHeight - bottomInset - AppConstants.paddingL * 2)
+            .clamp(260.0, screenHeight * 0.9)
+            .toDouble();
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        margin: const EdgeInsets.all(AppConstants.paddingL),
+        padding: const EdgeInsets.all(AppConstants.paddingXL),
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusXXL),
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: const Icon(Icons.bar_chart_rounded,
-                      color: AppColors.primary, size: 20),
                 ),
-                const SizedBox(width: AppConstants.paddingM),
-                Text('Create Poll', style: AppTextStyles.headlineMedium),
-              ],
-            ),
-            const SizedBox(height: AppConstants.paddingXL),
-            // Question
-            Text('Your question', style: AppTextStyles.titleMedium),
-            const SizedBox(height: AppConstants.paddingS),
-            TextField(
-              controller: _questionCtrl,
-              maxLines: 2,
-              maxLength: 200,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'Ask the community something...',
-                hintStyle: AppTextStyles.bodyMedium
-                    .copyWith(color: AppColors.textHint),
-                filled: true,
-                fillColor: AppColors.background,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                  borderSide: BorderSide.none,
-                ),
-                counterStyle: AppTextStyles.labelSmall,
               ),
-              style: AppTextStyles.bodyMedium
-                  .copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: AppConstants.paddingL),
-            // Options
-            Text('Options (2–4)', style: AppTextStyles.titleMedium),
-            const SizedBox(height: AppConstants.paddingS),
-            ...List.generate(_optionCtrls.length, (i) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppConstants.paddingS),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28, height: 28,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text('${i + 1}',
-                            style: AppTextStyles.labelMedium
-                                .copyWith(color: AppColors.primary)),
-                      ),
+              const SizedBox(height: AppConstants.paddingL),
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: AppConstants.paddingS),
-                    Expanded(
-                      child: TextField(
-                        controller: _optionCtrls[i],
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: 'Option ${i + 1}',
-                          hintStyle: AppTextStyles.bodyMedium
-                              .copyWith(color: AppColors.textHint),
-                          filled: true,
-                          fillColor: AppColors.background,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppConstants.radiusM),
-                            borderSide: BorderSide.none,
+                    child: const Icon(
+                      Icons.bar_chart_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppConstants.paddingM),
+                  Text('Create Poll', style: AppTextStyles.headlineMedium),
+                ],
+              ),
+              const SizedBox(height: AppConstants.paddingXL),
+              // Question
+              Text('Your question', style: AppTextStyles.titleMedium),
+              const SizedBox(height: AppConstants.paddingS),
+              TextField(
+                controller: _questionCtrl,
+                maxLines: 2,
+                maxLength: 200,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Ask the community something...',
+                  hintStyle: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textHint,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    borderSide: BorderSide.none,
+                  ),
+                  counterStyle: AppTextStyles.labelSmall,
+                ),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppConstants.paddingL),
+              // Options
+              Text('Options (2–4)', style: AppTextStyles.titleMedium),
+              const SizedBox(height: AppConstants.paddingS),
+              ...List.generate(_optionCtrls.length, (i) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppConstants.paddingS),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${i + 1}',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textPrimary),
                       ),
-                    ),
-                    if (_optionCtrls.length > 2) ...[
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () => _removeOption(i),
-                        child: const Icon(Icons.remove_circle_outline_rounded,
-                            color: AppColors.error, size: 20),
+                      const SizedBox(width: AppConstants.paddingS),
+                      Expanded(
+                        child: TextField(
+                          controller: _optionCtrls[i],
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            hintText: 'Option ${i + 1}',
+                            hintStyle: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.textHint,
+                            ),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppConstants.radiusM,
+                              ),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                       ),
+                      if (_optionCtrls.length > 2) ...[
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => _removeOption(i),
+                          child: const Icon(
+                            Icons.remove_circle_outline_rounded,
+                            color: AppColors.error,
+                            size: 20,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              );
-            }),
-            if (_optionCtrls.length < 4)
-              TextButton.icon(
-                onPressed: _addOption,
-                icon: const Icon(Icons.add_rounded,
-                    size: 16, color: AppColors.primary),
-                label: Text('Add option',
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: AppColors.primary)),
-              ),
-            const SizedBox(height: AppConstants.paddingXL),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: !_isValid || _isPosting
-                    ? null
-                    : () async {
-                        setState(() => _isPosting = true);
-                        final nav = Navigator.of(context);
-                        // Format poll as structured text
-                        final opts = _optionCtrls
-                            .where((c) => c.text.trim().isNotEmpty)
-                            .map((c) => c.text.trim())
-                            .toList();
-                        final content =
-                            '📊 ${_questionCtrl.text.trim()}\n\n${opts.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\n')}';
-                        await widget.onPost(content, 'Poll', null);
-                        if (mounted) nav.pop();
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.primaryMid,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppConstants.radiusM),
                   ),
-                  elevation: 0,
+                );
+              }),
+              if (_optionCtrls.length < 4)
+                TextButton.icon(
+                  onPressed: _addOption,
+                  icon: const Icon(
+                    Icons.add_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  label: Text(
+                    'Add option',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
-                child: _isPosting
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : Text('Post Poll',
-                        style: AppTextStyles.titleMedium
-                            .copyWith(color: Colors.white)),
+              const SizedBox(height: AppConstants.paddingXL),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: !_isValid || _isPosting
+                      ? null
+                      : () async {
+                          setState(() => _isPosting = true);
+                          final nav = Navigator.of(context);
+                          // Format poll as structured text
+                          final opts = _optionCtrls
+                              .where((c) => c.text.trim().isNotEmpty)
+                              .map((c) => c.text.trim())
+                              .toList();
+                          final content =
+                              '📊 ${_questionCtrl.text.trim()}\n\n${opts.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\n')}';
+                          await widget.onPost(content, 'Poll', null);
+                          if (mounted) nav.pop();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.primaryMid,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isPosting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'Post Poll',
+                          style: AppTextStyles.titleMedium.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1606,9 +1985,12 @@ class _ImagePickerBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: AppColors.primary),
             const SizedBox(width: 6),
-            Text(label,
-                style: AppTextStyles.labelMedium
-                    .copyWith(color: AppColors.primary)),
+            Text(
+              label,
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.primary,
+              ),
+            ),
           ],
         ),
       ),

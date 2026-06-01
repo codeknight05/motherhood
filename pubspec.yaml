@@ -47,9 +47,13 @@ dependencies:
   # Cloud image storage
   cloudinary_public: ^0.23.1
   http: ^1.6.0
+  webview_flutter: ^4.13.0
 
   # Share
   share_plus: ^10.1.4
+
+  # URL launcher — for opening video/audio links externally
+  url_launcher: ^6.3.1
 
   # AI — use http directly (google_generative_ai sdk uses deprecated v1beta endpoint)
 
