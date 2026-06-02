@@ -13,6 +13,9 @@ import '../../../core/widgets/app_card.dart';
 import '../../../features/auth/presentation/login_screen.dart';
 import '../../../features/onboarding/presentation/baby_setup_screen.dart';
 import '../../../models/baby_model.dart';
+import 'help_faq_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -70,9 +73,24 @@ class ProfileScreen extends ConsumerWidget {
                 _buildSectionLabel('Support'),
                 const SizedBox(height: AppConstants.paddingS),
                 _buildMenuCard([
-                  _MenuItem(icon: Icons.help_outline_rounded, label: 'Help & FAQ', color: AppColors.accentBlue, onTap: () {}),
-                  _MenuItem(icon: Icons.privacy_tip_outlined, label: 'Privacy Policy', color: AppColors.accentBlue, onTap: () {}),
-                  _MenuItem(icon: Icons.description_outlined, label: 'Terms of Service', color: AppColors.accentBlue, onTap: () {}),
+                  _MenuItem(
+                    icon: Icons.help_outline_rounded,
+                    label: 'Help & FAQ',
+                    color: AppColors.accentBlue,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpFaqScreen())),
+                  ),
+                  _MenuItem(
+                    icon: Icons.privacy_tip_outlined,
+                    label: 'Privacy Policy',
+                    color: AppColors.accentBlue,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+                  ),
+                  _MenuItem(
+                    icon: Icons.description_outlined,
+                    label: 'Terms of Service',
+                    color: AppColors.accentBlue,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsOfServiceScreen())),
+                  ),
                 ]),
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildSignOutButton(context, ref),
