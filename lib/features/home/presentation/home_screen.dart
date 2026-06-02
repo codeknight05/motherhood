@@ -76,14 +76,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Map<String, dynamic>> get _quickActions => _isPregnant
       ? [
           {'icon': Icons.favorite_rounded,        'label': 'My\nJourney',        'color': const Color(0xFFFFE4EC),     'iconColor': const Color(0xFFE8405A), 'route': 'journey'},
-          {'icon': Icons.restaurant_menu_rounded, 'label': 'Menu &\nRecipes',    'color': AppColors.accentGreenLight,  'iconColor': AppColors.accentGreen,  'route': 'food'},
+          {'icon': Icons.restaurant_menu_rounded, 'label': 'Nutrition',           'color': AppColors.accentGreenLight,  'iconColor': AppColors.accentGreen,  'route': 'food'},
           {'icon': Icons.people_rounded,          'label': 'Communities',        'color': AppColors.accentPinkLight,   'iconColor': AppColors.accentPink,   'route': 'community'},
           {'icon': Icons.menu_book_rounded,       'label': 'Knowledge\nHub',     'color': AppColors.primaryLight,      'iconColor': AppColors.primary,      'route': 'learn'},
           {'icon': Icons.local_hospital_rounded,  'label': 'Prenatal\nCare',     'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange, 'route': 'learn'},
         ]
       : [
           {'icon': Icons.directions_walk_rounded, 'label': 'Milestone\nTracker', 'color': AppColors.primaryLight,      'iconColor': AppColors.primary,      'route': 'milestones'},
-          {'icon': Icons.restaurant_menu_rounded, 'label': 'Menu &\nRecipes',    'color': AppColors.accentGreenLight,  'iconColor': AppColors.accentGreen,  'route': 'food'},
+          {'icon': Icons.restaurant_menu_rounded, 'label': 'Nutrition',           'color': AppColors.accentGreenLight,  'iconColor': AppColors.accentGreen,  'route': 'food'},
           {'icon': Icons.people_rounded,          'label': 'Communities',        'color': AppColors.accentPinkLight,   'iconColor': AppColors.accentPink,   'route': 'community'},
           {'icon': Icons.menu_book_rounded,       'label': 'Knowledge\nHub',     'color': AppColors.primaryLight,      'iconColor': AppColors.primary,      'route': 'learn'},
           {'icon': Icons.vaccines_rounded,        'label': 'Vaccination\nTracker','color': AppColors.accentOrangeLight,'iconColor': AppColors.accentOrange, 'route': 'vaccination'},
@@ -96,17 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       : sampleArticles.where((a) =>
           a.id == 'toddler_breakfast' || a.id == 'toddler_tantrums').toList();
 
-  // Articles linked to tips (by index) — tapping a tip opens the matching article
-  List<ArticleModel?> get _tipArticles => _isPregnant
-      ? [null, null, null] // pregnancy tips don't map to articles yet
-      : [
-          sampleArticles.firstWhere((a) => a.id == 'baby_sleep',
-              orElse: () => sampleArticles.first),
-          sampleArticles.firstWhere((a) => a.id == 'toddler_breakfast',
-              orElse: () => sampleArticles.first),
-          sampleArticles.firstWhere((a) => a.id == 'umbilical_cord',
-              orElse: () => sampleArticles.first),
-        ];
+
 
   String _monthName(int month) {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -202,14 +192,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(AppConstants.appName, style: AppTextStyles.headlineMedium),
-              Text(AppConstants.appTagline,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(AppConstants.appName, style: AppTextStyles.headlineMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(AppConstants.appTagline,
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
         ],
       ),
@@ -246,8 +240,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Row(children: [
                     Text('My Baby', style: AppTextStyles.bodySmall),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.edit_rounded, size: 14, color: AppColors.primary),
+                    const SizedBox(width: 2),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => ProfileScreen.showEditBabySheet(context, ref, baby),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Icon(Icons.edit_rounded, size: 14, color: AppColors.primary),
+                      ),
+                    ),
                   ]),
                   Text(baby.name,
                       style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
@@ -389,9 +390,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     // Use AI tips if loaded, otherwise use static fallback
-    final tips = tipsState.tips.isNotEmpty
-        ? tipsState.tips.map((t) => {'text': t.text, 'emoji': t.emoji}).toList()
-        : _activeTips.map((t) => {'text': t['text']!, 'emoji': '💡'}).toList();
+    final List<DailyTip> tips = tipsState.tips.isNotEmpty
+        ? tipsState.tips
+        : _activeTips.asMap().entries.map((entry) {
+            String title = '';
+            if (_isPregnant) {
+              title = entry.key == 0
+                  ? 'Stay Hydrated'
+                  : (entry.key == 1 ? 'Gentle Walking' : 'Folic Acid');
+            } else {
+              title = entry.key == 0
+                  ? 'Physical Play'
+                  : (entry.key == 1 ? 'New Foods' : 'Daily Reading');
+            }
+            return DailyTip(
+              title: title,
+              text: entry.value['text']!,
+              emoji: '💡',
+              category: _isPregnant ? 'nutrition' : (entry.key == 0 ? 'development' : (entry.key == 1 ? 'nutrition' : 'wellness')),
+            );
+          }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: AppConstants.paddingM),
         AspectRatio(
-          aspectRatio: 2.6,
+          aspectRatio: 2.2,
           child: PageView.builder(
             controller: _tipController,
             itemCount: tips.length,
@@ -413,15 +431,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? _activeTips[index]['image']!
                   : _activeTips[0]['image']!;
               return GestureDetector(
-                onTap: () {
-                  // Open matching article if available, else go to Learn
-                  final articles = _tipArticles;
-                  if (index < articles.length && articles[index] != null) {
-                    _goToArticle(articles[index]!);
-                  } else {
-                    _goToLearn();
-                  }
-                },
+                onTap: () => _showArticleLoadingAndGenerate(context, tip),
                 child: AppCard(
                   padding: EdgeInsets.zero,
                   child: Row(
@@ -450,25 +460,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         ),
                                       )
                                     : Text(
-                                        tip['emoji'] ?? '💡',
+                                        tip.emoji,
                                         style: const TextStyle(fontSize: 13),
                                       ),
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                tipsState.tips.isNotEmpty ? '✨ AI Tip' : 'Did you know?',
+                                tipsState.tips.isNotEmpty ? '✨ Grandma\'s Tip' : 'Did you know?',
                                 style: AppTextStyles.labelMedium.copyWith(
                                   color: AppColors.textSecondary,
                                 ),
                               ),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 2),
+                              Text(
+                                tip.title,
+                                style: AppTextStyles.titleMedium.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
                               Flexible(
                                 child: Text(
-                                  tip['text'] ?? '',
+                                  tip.text,
                                   style: AppTextStyles.bodySmall.copyWith(
                                     color: AppColors.textPrimary,
                                   ),
-                                  maxLines: 3,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -517,6 +537,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ],
     );
+  }
+
+  void _showArticleLoadingAndGenerate(BuildContext context, DailyTip tip) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const _ArticleGenerationDialog();
+      },
+    );
+
+    try {
+      final article = await ref.read(tipsProvider.notifier).generateArticleForTip(tip);
+      if (context.mounted) {
+        Navigator.pop(context); // Close dialog
+        _goToArticle(article);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close dialog
+        final fallback = ref.read(tipsProvider.notifier).createFallbackArticle(tip);
+        _goToArticle(fallback);
+      }
+    }
   }
 
   // ── Quick actions ─────────────────────────────────────────────────────────
@@ -847,6 +891,60 @@ class _MilestoneProgressRow extends StatelessWidget {
           color: milestone.progressPercent >= 1.0 ? AppColors.accentGreen : AppColors.textHint,
         ),
       ],
+    );
+  }
+}
+
+class _ArticleGenerationDialog extends StatelessWidget {
+  const _ArticleGenerationDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: const BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: Text('✨', style: TextStyle(fontSize: 28)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Generating detailed guide...',
+              style: AppTextStyles.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Creating a personalized article based on this tip',
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            const SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

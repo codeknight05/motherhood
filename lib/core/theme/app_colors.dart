@@ -59,4 +59,10 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  static const LinearGradient softGreenGradient = LinearGradient(
+    colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }

@@ -10,9 +10,12 @@ import '../../../core/providers/recipe_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/recipe_model.dart';
 import 'recipe_detail_screen.dart';
+import '../../../core/widgets/network_error_screen.dart';
+import '../../../core/utils/network_connectivity.dart';
 
 class AiRecipesScreen extends ConsumerStatefulWidget {
-  const AiRecipesScreen({super.key});
+  final String? initialTheme;
+  const AiRecipesScreen({super.key, this.initialTheme});
 
   @override
   ConsumerState<AiRecipesScreen> createState() => _AiRecipesScreenState();
@@ -38,19 +41,41 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedTheme = widget.initialTheme;
     // Only auto-generate if we have no recipes yet — don't fire on every open
     WidgetsBinding.instance.addPostFrameCallback((_) => _generateIfNeeded());
   }
 
   void _generateIfNeeded() {
     final aiState = ref.read(aiRecipesProvider);
-    // Only auto-generate if truly idle (never generated before)
-    if (aiState.status == AiRecipesStatus.idle) {
+    if (widget.initialTheme != null) {
+      _generate(theme: widget.initialTheme);
+    } else if (aiState.status == AiRecipesStatus.idle) {
       _generate();
     }
   }
 
-  void _generate({String? theme}) {
+  void _generate({String? theme}) async {
+    final isConnected = await NetworkConnectivity.checkConnection();
+    if (!mounted) return;
+
+    if (!isConnected) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (ctx) => NetworkErrorScreen(
+            onRetry: () async {
+              final recheck = await NetworkConnectivity.checkConnection();
+              if (recheck) {
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                _generate(theme: theme);
+              }
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
     final baby = ref.read(babyProvider).baby ?? sampleBaby;
     ref.read(aiRecipesProvider.notifier).generate(
       ageInMonths: baby.ageInMonths > 0 ? baby.ageInMonths : 8,
@@ -120,7 +145,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                   borderRadius: BorderRadius.circular(AppConstants.radiusFull),
                 ),
                 child: const Text(
-                  'Powered by Groq AI',
+                  'Powered by Mumma',
                   style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -163,7 +188,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Groq AI creates fresh, nutritious recipes tailored to ${baby.name}\'s age every time you tap Generate.',
+                  'Mumma creates fresh, nutritious recipes tailored to ${baby.name}\'s age every time you tap Generate.',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: Colors.white.withValues(alpha: 0.9),
                   ),
@@ -284,7 +309,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
               Text(
                 _selectedTheme != null
                     ? 'Generating $_selectedTheme recipes... 🍳'
-                    : 'Groq AI is cooking up recipes... 🍳',
+                    : 'Mumma is cooking up recipes... 🍳',
                 style: AppTextStyles.headlineSmall.copyWith(color: AppColors.primary),
                 textAlign: TextAlign.center,
               ),

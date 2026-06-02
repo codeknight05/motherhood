@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/knowledge_hub_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -134,49 +133,21 @@ class _LearnScreenState extends State<LearnScreen> {
   Future<void> _openResource(KnowledgeResource resource) async {
     final type = resource.resourceType.toLowerCase();
     final isVideo = type.contains('video');
-    final isAudio = type.contains('audio');
 
-    if (isVideo) {
-      // YouTube videos → in-app player
-      if (isYouTubeUrl(resource.sourceUrl)) {
-        if (!mounted) return;
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => YouTubePlayerScreen(resource: resource),
-          ),
-        );
-        return;
-      }
-      // Non-YouTube video → open externally
-      final uri = Uri.tryParse(resource.sourceUrl);
-      if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+    if (isVideo && isYouTubeUrl(resource.sourceUrl)) {
+      // YouTube → in-app YouTube iframe player
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => YouTubePlayerScreen(resource: resource),
+        ),
+      );
       return;
     }
 
-    if (isAudio) {
-      // Audio → open externally (podcast apps etc.)
-      final uri = Uri.tryParse(resource.sourceUrl);
-      if (uri != null) {
-        final launched = await launchUrl(
-          uri,
-          mode: LaunchMode.externalApplication,
-        );
-        if (!launched && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Could not open ${resource.sourceName}'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-      return;
-    }
-
-    // Articles and guides → in-app WebView
+    // Everything else (articles, guides, audio, non-YouTube video)
+    // → in-app WebView
     if (!mounted) return;
     await Navigator.push(
       context,

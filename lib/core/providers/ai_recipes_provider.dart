@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/recipe_model.dart';
 import '../services/gemini_service.dart';
+import 'recipe_provider.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,8 @@ class AiRecipesState {
 // ── Notifier ──────────────────────────────────────────────────────────────────
 
 class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
-  AiRecipesNotifier() : super(const AiRecipesState());
+  final Ref _ref;
+  AiRecipesNotifier(this._ref) : super(const AiRecipesState());
 
   /// Generate fresh AI recipes for the given baby age.
   Future<void> generate({
@@ -78,6 +80,7 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
         }
 
         final recipes = raw.map(_parseRecipe).toList();
+        _ref.read(recipeLibraryProvider.notifier).addRecipes(recipes);
         state = state.copyWith(
           recipes: recipes,
           status: AiRecipesStatus.success,
@@ -102,9 +105,9 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
         // Final failure — show user-friendly error
         String userMsg;
         if (isRateLimit) {
-          userMsg = 'Rate limit reached. Please wait a moment and try again.\n\nGroq free tier allows 30 requests per minute.';
+          userMsg = 'Rate limit reached. Please wait a moment and try again.\n\nMumma allows up to 30 requests per minute.';
         } else if (msg.contains('API_KEY') || msg.contains('api key') || msg.contains('401') || msg.contains('invalid_api_key')) {
-          userMsg = 'Invalid API key. Please check your Groq API key in secrets.dart.\n\nGet a free key at console.groq.com';
+          userMsg = 'Invalid API key. Please check the API key configuration in secrets.dart.';
         } else if (msg.contains('TimeoutException') || msg.contains('timeout')) {
           userMsg = 'Request timed out. Check your internet connection and try again.';
         } else if (msg.contains('SocketException') || msg.contains('network')) {
@@ -181,5 +184,5 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
 
 final aiRecipesProvider =
     StateNotifierProvider<AiRecipesNotifier, AiRecipesState>(
-  (_) => AiRecipesNotifier(),
+  (ref) => AiRecipesNotifier(ref),
 );

@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/widgets/network_error_screen.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/providers/baby_provider.dart';
 import '../../../core/providers/pregnancy_provider.dart';
@@ -39,10 +41,30 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _navigate();
   }
 
+  Future<bool> _checkConnection() async {
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 4));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _navigate() async {
     // Minimum splash display time
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
+
+    final isConnected = await _checkConnection();
+    if (!isConnected) {
+      _go(NetworkErrorScreen(onRetry: () {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SplashScreen()),
+        );
+      }));
+      return;
+    }
 
     final session = Supabase.instance.client.auth.currentSession;
     final isLoggedIn = session != null && !_isExpired(session);
@@ -52,43 +74,52 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
-    // User is logged in — check profile role and baby profile.
-    final profile = await SupabaseService.fetchProfile(session.user.id);
-    if (!mounted) return;
-
-    debugPrint('[SplashScreen] role=${profile?['role']}, userId=${session.user.id}');
-
-    if (profile?['role'] == 'family') {
-      _go(const MainShell());
-      return;
-    }
-
-    await ref.read(babyProvider.notifier).loadBaby();
-    if (!mounted) return;
-
-    final babyState = ref.read(babyProvider);
-    if (!babyState.hasBaby) {
-      _go(const BabySetupScreen());
-      return;
-    }
-
-    // Pregnant users get the pregnancy home screen
-    if (profile?['role'] == 'pregnant') {
-      debugPrint('[SplashScreen] Routing to PregnancyShell, dueDate=${babyState.baby?.dueDate}');
-      final baby = babyState.baby!;
-      if (baby.dueDate != null) {
-        await ref
-            .read(pregnancyProvider.notifier)
-            .loadFromDueDate(baby.dueDate!);
-      } else {
-        await ref.read(pregnancyProvider.notifier).loadWeek(1);
-      }
+    try {
+      // User is logged in — check profile role and baby profile.
+      final profile = await SupabaseService.fetchProfile(session.user.id);
       if (!mounted) return;
-      _go(const PregnancyShell());
-      return;
-    }
 
-    _go(const MainShell());
+      debugPrint('[SplashScreen] role=${profile?['role']}, userId=${session.user.id}');
+
+      if (profile?['role'] == 'family') {
+        _go(const MainShell());
+        return;
+      }
+
+      await ref.read(babyProvider.notifier).loadBaby();
+      if (!mounted) return;
+
+      final babyState = ref.read(babyProvider);
+      if (!babyState.hasBaby) {
+        _go(const BabySetupScreen());
+        return;
+      }
+
+      // Pregnant users get the pregnancy home screen
+      if (profile?['role'] == 'pregnant') {
+        debugPrint('[SplashScreen] Routing to PregnancyShell, dueDate=${babyState.baby?.dueDate}');
+        final baby = babyState.baby!;
+        if (baby.dueDate != null) {
+          await ref
+              .read(pregnancyProvider.notifier)
+              .loadFromDueDate(baby.dueDate!);
+        } else {
+          await ref.read(pregnancyProvider.notifier).loadWeek(1);
+        }
+        if (!mounted) return;
+        _go(const PregnancyShell());
+        return;
+      }
+
+      _go(const MainShell());
+    } catch (e) {
+      debugPrint('[SplashScreen] Failed profile navigation: $e');
+      _go(NetworkErrorScreen(onRetry: () {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SplashScreen()),
+        );
+      }));
+    }
   }
 
   void _go(Widget screen) {

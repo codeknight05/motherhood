@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "332107798705",
+    "project_id": "motherhood-124ab",
+    "storage_bucket": "motherhood-124ab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:332107798705:android:07bf09a958d49b3b1faa90",
+        "android_client_info": {
+          "package_name": "com.shriharshkotecha.motherhood"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAL48GVzfvndwJjtFbsOWSaD8GakdGCMvs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

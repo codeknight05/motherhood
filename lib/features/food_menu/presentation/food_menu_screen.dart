@@ -14,6 +14,7 @@ import 'recipe_detail_screen.dart';
 import 'weekly_meal_plan_screen.dart';
 import 'bookmarked_recipes_screen.dart';
 import 'ai_recipes_screen.dart';
+import 'allergy_guide_screen.dart';
 
 class FoodMenuScreen extends ConsumerStatefulWidget {
   const FoodMenuScreen({super.key});
@@ -36,8 +37,8 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   final List<Map<String, dynamic>> _quickCategories = [
     {'icon': Icons.calendar_today_rounded, 'label': 'Weekly\nMeal Plan', 'subtitle': 'Plan a week of healthy meals', 'color': AppColors.primaryLight, 'iconColor': AppColors.primary, 'route': 'meal_plan'},
     {'icon': Icons.bookmark_rounded, 'label': 'Saved\nRecipes', 'subtitle': 'Your bookmarked recipes', 'color': AppColors.accentOrangeLight, 'iconColor': AppColors.accentOrange, 'route': 'bookmarks'},
-    {'icon': Icons.track_changes_rounded, 'label': 'Foods by\nGoal', 'subtitle': 'Weight gain, immunity & more', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink, 'route': null},
-    {'icon': Icons.shield_rounded, 'label': 'Allergy\nGuide', 'subtitle': 'Foods to avoid & be careful', 'color': AppColors.accentBlueLight, 'iconColor': AppColors.accentBlue, 'route': null},
+    {'icon': Icons.track_changes_rounded, 'label': 'Foods by\nGoal', 'subtitle': 'Weight gain, immunity & more', 'color': AppColors.accentPinkLight, 'iconColor': AppColors.accentPink, 'route': 'ai_recipes'},
+    {'icon': Icons.shield_rounded, 'label': 'Allergy\nGuide', 'subtitle': 'Foods to avoid & be careful', 'color': AppColors.accentBlueLight, 'iconColor': AppColors.accentBlue, 'route': 'allergy_guide'},
   ];
 
   final List<String> _weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -99,7 +100,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
         children: [
           Row(
             children: [
-              Text('Food Menu', style: AppTextStyles.headlineLarge),
+              Text('Nutrition', style: AppTextStyles.headlineLarge),
               const SizedBox(width: 6),
               const Text('🍽️', style: TextStyle(fontSize: 20)),
             ],
@@ -197,7 +198,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                           borderRadius: BorderRadius.circular(AppConstants.radiusFull),
                         ),
                         child: const Text(
-                          'Groq AI ✨',
+                          'Mumma ✨',
                           style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -279,14 +280,17 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   }
 
   Widget _buildQuickCategories() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 450;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         crossAxisSpacing: AppConstants.paddingM,
         mainAxisSpacing: AppConstants.paddingM,
-        childAspectRatio: 0.68,
+        childAspectRatio: isSmallScreen ? 0.82 : 0.68,
       ),
       itemCount: _quickCategories.length,
       itemBuilder: (context, index) {
@@ -308,18 +312,24 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
               const SizedBox(height: 5),
               Text(
                 cat['label'] as String,
-                style: AppTextStyles.labelSmall.copyWith(color: AppColors.textPrimary),
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              Text(
-                cat['subtitle'] as String,
-                style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary, fontSize: 9),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              if (!isSmallScreen) ...[
+                const SizedBox(height: 2),
+                Text(
+                  cat['subtitle'] as String,
+                  style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary, fontSize: 9),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
           ),
         );
@@ -339,11 +349,35 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
             ),
           ),
         );
+        break;
       case 'bookmarks':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const BookmarkedRecipesScreen()),
         );
+        break;
+      case 'ai_recipes':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AiRecipesScreen()),
+        );
+        break;
+      case 'allergy_guide':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AllergyGuideScreen()),
+        );
+        break;
+    }
+  }
+
+  String? _mapCategoryToTheme(String categoryLabel) {
+    switch (categoryLabel) {
+      case 'Iron Rich Foods':     return 'Iron Rich';
+      case 'Brain Development':   return 'Brain Boost';
+      case 'Immunity Booster':    return 'Immunity';
+      case 'Weight Gain':         return 'Weight Gain';
+      default:                    return null;
     }
   }
 
@@ -508,33 +542,47 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
           const SizedBox(height: AppConstants.paddingM),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: _weekDays.map((day) {
+            children: _weekDays.asMap().entries.map((entry) {
+              final index = entry.key;
+              final day = entry.value;
               final isWeekend = day == 'Fri' || day == 'Sat' || day == 'Sun';
               return Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      day,
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: isWeekend ? AppColors.accentGreen : AppColors.textSecondary,
-                        fontWeight: isWeekend ? FontWeight.w700 : FontWeight.w500,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WeeklyMealPlanScreen(
+                        ageGroup: _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
+                        initialDay: index,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 5),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        day,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: isWeekend ? AppColors.accentGreen : AppColors.textSecondary,
+                          fontWeight: isWeekend ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      child: const Center(child: Text('🍲', style: TextStyle(fontSize: 16))),
-                    ),
-                    const SizedBox(height: 3),
-                    Text('4 Meals', style: AppTextStyles.labelSmall.copyWith(fontSize: 9), textAlign: TextAlign.center),
-                  ],
+                      const SizedBox(height: 5),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: const Center(child: Text('🍲', style: TextStyle(fontSize: 16))),
+                      ),
+                      const SizedBox(height: 3),
+                      Text('4 Meals', style: AppTextStyles.labelSmall.copyWith(fontSize: 9), textAlign: TextAlign.center),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
@@ -592,7 +640,14 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Popular Categories', actionLabel: 'View all', onAction: () {}),
+        SectionHeader(
+          title: 'Popular Categories',
+          actionLabel: 'View all',
+          onAction: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AiRecipesScreen()),
+          ),
+        ),
         const SizedBox(height: AppConstants.paddingM),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -601,21 +656,32 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
               final cat = _popularCategories[index];
               return Padding(
                 padding: EdgeInsets.only(right: index < _popularCategories.length - 1 ? AppConstants.paddingS : 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: colors[index],
-                    borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(cat['emoji']!, style: const TextStyle(fontSize: 14)),
-                      const SizedBox(width: 6),
-                      Text(
-                        cat['label']!,
-                        style: AppTextStyles.labelMedium.copyWith(color: textColors[index]),
+                child: GestureDetector(
+                  onTap: () {
+                    final theme = _mapCategoryToTheme(cat['label']!);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AiRecipesScreen(initialTheme: theme),
                       ),
-                    ],
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colors[index],
+                      borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(cat['emoji']!, style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Text(
+                          cat['label']!,
+                          style: AppTextStyles.labelMedium.copyWith(color: textColors[index]),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

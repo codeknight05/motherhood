@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/supabase_config.dart';
+import 'core/services/notification_service.dart';
 import 'features/auth/presentation/splash_screen.dart';
 
 Future<void> main() async {
@@ -23,6 +24,9 @@ Future<void> main() async {
       authFlowType: AuthFlowType.pkce,
     ),
   );
+
+  // Initialize Push & Local Notifications
+  await NotificationService.initialize();
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -48,8 +52,38 @@ Future<void> main() async {
   );
 }
 
-class MotherHoodApp extends StatelessWidget {
+class MotherHoodApp extends StatefulWidget {
   const MotherHoodApp({super.key});
+
+  @override
+  State<MotherHoodApp> createState() => _MotherHoodAppState();
+}
+
+class _MotherHoodAppState extends State<MotherHoodApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Cancel any outstanding inactivity alerts when the user launches the app
+    NotificationService.cancelInactivityNotifications();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // App went to background: Schedule periodic inactivity reminders
+      NotificationService.scheduleInactivityNotifications();
+    } else if (state == AppLifecycleState.resumed) {
+      // App returned to foreground: Cancel scheduled reminders
+      NotificationService.cancelInactivityNotifications();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

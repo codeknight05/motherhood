@@ -48,6 +48,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
         onPressed: () => Navigator.pop(context),
       ),
+      title: Text(
+        a.title,
+        style: AppTextStyles.headlineMedium,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       actions: [
         IconButton(
           icon: Icon(

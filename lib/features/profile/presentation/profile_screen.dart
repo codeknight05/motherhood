@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -42,7 +42,7 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: AppConstants.paddingS),
                 _buildMenuCard([
                   _MenuItem(icon: Icons.person_outline_rounded, label: 'Edit Profile', color: AppColors.primary, onTap: () => _showEditProfileSheet(context, user)),
-                  _MenuItem(icon: Icons.child_care_rounded, label: 'Edit Baby Details', color: AppColors.accentPink, onTap: () => _showEditBabySheet(context, ref, baby)),
+                  _MenuItem(icon: Icons.child_care_rounded, label: 'Edit Baby Details', color: AppColors.accentPink, onTap: () => ProfileScreen.showEditBabySheet(context, ref, baby)),
                   _MenuItem(icon: Icons.notifications_outlined, label: 'Notifications', color: AppColors.accentOrange, onTap: () {}),
                 ]),
                 const SizedBox(height: AppConstants.paddingL),
@@ -373,7 +373,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditBabySheet(BuildContext context, WidgetRef ref, BabyModel? baby) {
+  static void showEditBabySheet(BuildContext context, WidgetRef ref, BabyModel? baby) {
     if (baby == null) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const BabySetupScreen()));
       return;

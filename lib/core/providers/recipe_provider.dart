@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/recipe_model.dart';
 
 // ── Bookmarks provider ────────────────────────────────────────────────────────
@@ -44,22 +44,43 @@ final aiBookmarkedRecipesProvider =
   (_) => AiBookmarkedRecipesNotifier(),
 );
 
-/// Returns all bookmarked recipes — combines sample recipes + AI recipes.
+// ── Recipe Library provider ───────────────────────────────────────────────────
+
+class RecipeLibraryNotifier extends StateNotifier<List<RecipeModel>> {
+  RecipeLibraryNotifier() : super([...sampleRecipes]);
+
+  void addRecipe(RecipeModel recipe) {
+    if (!state.any((r) => r.id == recipe.id)) {
+      state = [...state, recipe];
+    }
+  }
+
+  void addRecipes(List<RecipeModel> recipes) {
+    final updated = [...state];
+    bool changed = false;
+    for (final recipe in recipes) {
+      if (!updated.any((r) => r.id == recipe.id)) {
+        updated.add(recipe);
+        changed = true;
+      }
+    }
+    if (changed) {
+      state = updated;
+    }
+  }
+}
+
+final recipeLibraryProvider =
+    StateNotifierProvider<RecipeLibraryNotifier, List<RecipeModel>>(
+  (_) => RecipeLibraryNotifier(),
+);
+
+/// Returns all bookmarked recipes — combines sample recipes + AI recipes from library.
 final bookmarkedRecipesProvider = Provider<List<RecipeModel>>((ref) {
   final bookmarkedIds = ref.watch(bookmarksProvider);
-  final aiStore = ref.watch(aiBookmarkedRecipesProvider);
+  final library = ref.watch(recipeLibraryProvider);
 
-  // Merge sample + AI recipes, then filter by bookmarked IDs
-  final allRecipes = [
-    ...sampleRecipes,
-    ...aiStore.values,
-  ];
-
-  // Deduplicate by id, preserving order (sample first, then AI)
-  final seen = <String>{};
-  final unique = allRecipes.where((r) => seen.add(r.id)).toList();
-
-  return unique.where((r) => bookmarkedIds.contains(r.id)).toList();
+  return library.where((r) => bookmarkedIds.contains(r.id)).toList();
 });
 
 // ── Daily recommendation provider ─────────────────────────────────────────────

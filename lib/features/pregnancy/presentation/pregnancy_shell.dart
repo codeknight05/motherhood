@@ -295,7 +295,7 @@ class _CenterNavItem extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              'Food Menu',
+              'Nutrition',
               style: AppTextStyles.labelSmall.copyWith(
                 color: isSelected
                     ? AppColors.navSelected
