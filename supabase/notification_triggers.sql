@@ -123,7 +123,7 @@ end;
 $$ language plpgsql security definer;
 
 -- Create the trigger on the community_posts table
--- drop trigger if exists trigger_new_community_post on public.community_posts;
--- create trigger trigger_new_community_post
---     after insert on public.community_posts
---     for each row execute function public.on_new_community_post_trigger();
+drop trigger if exists trigger_new_community_post on public.community_posts;
+create trigger trigger_new_community_post
+    after insert on public.community_posts
+    for each row execute function public.on_new_community_post_trigger();
