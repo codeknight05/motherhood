@@ -109,7 +109,7 @@ class NotificationService {
         final RemoteNotification? notification = message.notification;
         final AndroidNotification? android = message.notification?.android;
 
-        if (notification != null && android != null && !kIsWeb) {
+        if (notification != null && !kIsWeb) {
           _localNotifications.show(
             notification.hashCode,
             notification.title,
@@ -119,7 +119,7 @@ class NotificationService {
                 channel.id,
                 channel.name,
                 channelDescription: channel.description,
-                icon: android.smallIcon ?? '@mipmap/ic_launcher',
+                icon: android?.smallIcon ?? '@mipmap/ic_launcher',
               ),
             ),
             payload: message.data.toString(),

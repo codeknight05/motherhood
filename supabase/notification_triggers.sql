@@ -53,7 +53,7 @@ begin
             -- Uses service role to bypass auth, or uses anon key
             'Authorization', 'Bearer ' || current_setting('request.jwt.claim.role', true)
         ),
-        body := payload::text
+        body := payload
     );
 end;
 $$ language plpgsql security definer;
@@ -77,7 +77,7 @@ begin
     where id = NEW.community_id;
 
     -- 2. Fetch author's name
-    select coalesce(display_name, 'A user') into post_author_name 
+    select coalesce(full_name, 'A user') into post_author_name 
     from public.profiles 
     where id = NEW.user_id;
 
@@ -114,7 +114,7 @@ begin
                 -- Use your service role key in production webhooks
                 'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhZHNjanFwcWlkdG14bmpteGVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODY1ODg4OCwiZXhwIjoyMDk0MjM0ODg4fQ.gZnEDdW7BMCs4iIeCvHU2CmouPDlYVNTneTsMfQ3aAI'
             ),
-            body := payload::text
+            body := payload
         );
     end if;
 
@@ -127,3 +127,60 @@ drop trigger if exists trigger_new_community_post on public.community_posts;
 create trigger trigger_new_community_post
     after insert on public.community_posts
     for each row execute function public.on_new_community_post_trigger();
+
+
+-- ── 3. Automatic Community Reply Notification Trigger ──────────────────────────
+-- Automatically notifies the author of a community post when someone replies.
+create or replace function public.on_new_community_reply_trigger()
+returns trigger as $$
+declare
+    post_author_id uuid;
+    reply_author_name text;
+    project_ref text := 'wadscjqpqidtmxnjmxea'; -- UPDATE THIS with your Supabase Project Ref
+    payload jsonb;
+begin
+    -- 1. Fetch the user_id of the original post author
+    select user_id into post_author_id 
+    from public.community_posts 
+    where id = NEW.post_id;
+
+    -- 2. Fetch the name of the person who replied
+    select coalesce(full_name, 'A user') into reply_author_name 
+    from public.profiles 
+    where id = NEW.user_id;
+
+    -- 3. Only notify the post author if they are not the one who replied
+    if post_author_id is not null and post_author_id != NEW.user_id then
+        payload := jsonb_build_object(
+            'title', reply_author_name || ' replied to your post',
+            'body', substring(NEW.content from 1 for 100),
+            'userIds', array[post_author_id],
+            'data', jsonb_build_object(
+                'click_action', 'FLUTTER_NOTIFICATION_CLICK',
+                'route', '/community/post/' || NEW.post_id,
+                'post_id', NEW.post_id::text,
+                'reply_id', NEW.id::text
+            )
+        );
+
+        -- Send HTTP POST to FCM Edge Function via pg_net
+        perform net.http_post(
+            url := 'https://' || project_ref || '.functions.supabase.co/send-push-notification',
+            headers := jsonb_build_object(
+                'Content-Type', 'application/json',
+                -- Use your service role key in production webhooks
+                'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhZHNjanFwcWlkdG14bmpteGVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODY1ODg4OCwiZXhwIjoyMDk0MjM0ODg4fQ.gZnEDdW7BMCs4iIeCvHU2CmouPDlYVNTneTsMfQ3aAI'
+            ),
+            body := payload
+        );
+    end if;
+
+    return NEW;
+end;
+$$ language plpgsql security definer;
+
+-- Create the trigger on the community_post_replies table
+drop trigger if exists trigger_new_community_reply on public.community_post_replies;
+create trigger trigger_new_community_reply
+    after insert on public.community_post_replies
+    for each row execute function public.on_new_community_reply_trigger();

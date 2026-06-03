@@ -20,9 +20,9 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
-create policy "Users can view own profile"
+create policy "Anyone can view profiles"
   on public.profiles for select
-  using (auth.uid() = id);
+  using (true);
 
 create policy "Users can update own profile"
   on public.profiles for update
