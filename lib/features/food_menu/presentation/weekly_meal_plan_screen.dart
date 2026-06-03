@@ -10,6 +10,7 @@ import '../../../models/recipe_model.dart';
 import '../../../core/providers/weekly_meal_plan_provider.dart';
 import '../../../core/providers/recipe_provider.dart';
 import 'recipe_detail_screen.dart';
+import 'allergy_guide_screen.dart';
 
 class WeeklyMealPlanScreen extends ConsumerStatefulWidget {
   final String ageGroup;
@@ -32,15 +33,18 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
     _selectedDay = widget.initialDay;
   }
 
-  final List<Map<String, dynamic>> _days = [
-    {'label': 'Mon', 'dot': AppColors.accentGreen, 'isToday': true},
-    {'label': 'Tue', 'dot': AppColors.accentPink, 'isToday': false},
-    {'label': 'Wed', 'dot': AppColors.primary, 'isToday': false},
-    {'label': 'Thu', 'dot': AppColors.accentOrange, 'isToday': false},
-    {'label': 'Fri', 'dot': AppColors.accentBlue, 'isToday': false},
-    {'label': 'Sat', 'dot': AppColors.accentGreen, 'isToday': false},
-    {'label': 'Sun', 'dot': AppColors.accentPink, 'isToday': false},
-  ];
+  List<Map<String, dynamic>> get _days {
+    final int today = DateTime.now().weekday;
+    return [
+      {'label': 'Mon', 'dot': AppColors.accentGreen, 'isToday': today == DateTime.monday},
+      {'label': 'Tue', 'dot': AppColors.accentPink, 'isToday': today == DateTime.tuesday},
+      {'label': 'Wed', 'dot': AppColors.primary, 'isToday': today == DateTime.wednesday},
+      {'label': 'Thu', 'dot': AppColors.accentOrange, 'isToday': today == DateTime.thursday},
+      {'label': 'Fri', 'dot': AppColors.accentBlue, 'isToday': today == DateTime.friday},
+      {'label': 'Sat', 'dot': AppColors.accentGreen, 'isToday': today == DateTime.saturday},
+      {'label': 'Sun', 'dot': AppColors.accentPink, 'isToday': today == DateTime.sunday},
+    ];
+  }
 
   Map<String, List<Map<String, dynamic>>> _compileShoppingList(
     Map<int, List<MealPlanSlot>> weeklyMeals,
@@ -465,6 +469,9 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
   }
 
   Widget _buildDaySelector() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 600;
+
     return Row(
       children: _days.asMap().entries.map((entry) {
         final i = entry.key;
@@ -491,14 +498,25 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
                         style: AppTextStyles.labelMedium.copyWith(
                           color: isSelected ? Colors.white : AppColors.textPrimary,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: isSmallScreen ? 11 : 13,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                       ),
-                      if (day['isToday'] == true)
-                        Text('Today', style: AppTextStyles.labelSmall.copyWith(
-                          color: isSelected ? Colors.white70 : AppColors.accentGreen,
-                          fontSize: 8,
-                        )),
+                      Opacity(
+                        opacity: day['isToday'] == true ? 1.0 : 0.0,
+                        child: Text(
+                          'Today',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: isSelected ? Colors.white70 : AppColors.accentGreen,
+                            fontSize: isSmallScreen ? 7 : 8,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -522,7 +540,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
     final weeklyMeals = ref.watch(weeklyMealPlanProvider);
     final dayMeals = weeklyMeals[_selectedDay] ?? weeklyMeals[0]!;
     final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isSmallScreen = screenWidth < 400;
+    final bool isSmallScreen = screenWidth < 600;
 
     return Container(
       decoration: BoxDecoration(
@@ -544,6 +562,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
                   const SizedBox(width: AppConstants.paddingS),
                   SizedBox(width: 110, child: Text('Ingredients & Benefits', style: AppTextStyles.labelSmall)),
                 ],
+                const SizedBox(width: AppConstants.paddingS),
                 const SizedBox(width: 24),
               ],
             ),
@@ -604,7 +623,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () {},
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllergyGuideScreen())),
             child: Text('Read More >', style: AppTextStyles.labelMedium.copyWith(color: AppColors.accentOrange)),
           ),
         ],
@@ -987,7 +1006,7 @@ class _MealRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isSmallScreen = screenWidth < 400;
+    final bool isSmallScreen = screenWidth < 600;
 
     return InkWell(
       onTap: onTap,

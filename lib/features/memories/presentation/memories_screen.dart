@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
@@ -20,10 +22,26 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
   final _picker = ImagePicker();
   final List<MemoryEntry> _memories = List.from(sampleMemories);
   MemoryTag? _selectedFilter;
+  bool _isGridView = true;
+  bool _isSearching = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   List<MemoryEntry> get _filtered {
-    if (_selectedFilter == null) return _memories;
-    return _memories.where((m) => m.tag == _selectedFilter).toList();
+    List<MemoryEntry> list = _memories;
+    if (_selectedFilter != null) {
+      list = list.where((m) => m.tag == _selectedFilter).toList();
+    }
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      list = list.where((m) => m.caption?.toLowerCase().contains(query) ?? false).toList();
+    }
+    return list;
   }
 
   // Group memories by month label
@@ -129,7 +147,9 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
                         children: [
                           _buildMonthHeader(entry.key),
                           const SizedBox(height: AppConstants.paddingM),
-                          _buildMemoryGrid(entry.value),
+                          _isGridView
+                              ? _buildMemoryGrid(entry.value)
+                              : _buildMemoryList(entry.value),
                           const SizedBox(height: AppConstants.paddingXL),
                         ],
                       )),
@@ -150,32 +170,57 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
       elevation: 0,
       scrolledUnderElevation: 0,
       titleSpacing: AppConstants.paddingL,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Text('Memory Diary', style: AppTextStyles.headlineLarge),
-              const SizedBox(width: 6),
-              const Text('📸', style: TextStyle(fontSize: 20)),
-            ],
-          ),
-          Text(
-            '${baby.name}\'s precious moments',
-            style: AppTextStyles.bodySmall,
-          ),
-        ],
-      ),
+      title: _isSearching
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search memories...',
+                hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
+                border: InputBorder.none,
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _searchController.clear();
+                      _isSearching = false;
+                    });
+                  },
+                ),
+              ),
+              style: AppTextStyles.titleMedium,
+              onChanged: (_) => setState(() {}),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text('Memory Diary', style: AppTextStyles.headlineLarge),
+                    const SizedBox(width: 6),
+                    const Text('📸', style: TextStyle(fontSize: 20)),
+                  ],
+                ),
+                Text(
+                  '${baby.name}\'s precious moments',
+                  style: AppTextStyles.bodySmall,
+                ),
+              ],
+            ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.grid_view_rounded, color: AppColors.textPrimary),
-          onPressed: () {},
+          icon: Icon(
+            _isGridView ? Icons.list_alt_rounded : Icons.grid_view_rounded,
+            color: AppColors.textPrimary,
+          ),
+          onPressed: () => setState(() => _isGridView = !_isGridView),
         ),
-        IconButton(
-          icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary),
-          onPressed: () {},
-        ),
+        if (!_isSearching)
+          IconButton(
+            icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary),
+            onPressed: () => setState(() => _isSearching = true),
+          ),
         const SizedBox(width: 4),
       ],
     );
@@ -258,6 +303,92 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
         return GestureDetector(
           onTap: () => _openMemory(memory),
           child: _MemoryGridTile(memory: memory),
+        );
+      },
+    );
+  }
+
+  Widget _buildMemoryList(List<MemoryEntry> memories) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: memories.length,
+      itemBuilder: (context, index) {
+        final memory = memories[index];
+        return GestureDetector(
+          onTap: () => _openMemory(memory),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: AppConstants.paddingM),
+            padding: const EdgeInsets.all(AppConstants.paddingM),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  child: SizedBox(
+                    width: 70,
+                    height: 70,
+                    child: memory.imagePath != null
+                        ? Image.file(File(memory.imagePath!), fit: BoxFit.cover)
+                        : memory.imageUrl != null
+                            ? Image.network(
+                                memory.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.primaryLight,
+                                  child: const Icon(Icons.image_rounded, color: AppColors.primaryMid),
+                                ),
+                              )
+                            : Container(
+                                color: AppColors.primaryLight,
+                                child: const Icon(Icons.image_rounded, color: AppColors.primaryMid),
+                              ),
+                  ),
+                ),
+                const SizedBox(width: AppConstants.paddingM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        memory.caption ?? 'Memory from ${memory.ageMonths} months',
+                        style: AppTextStyles.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+                            ),
+                            child: Text(
+                              '${memory.tag.emoji} ${memory.tag.label}',
+                              style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('d MMM yyyy').format(memory.date),
+                            style: AppTextStyles.labelSmall.copyWith(color: AppColors.textHint),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.textHint),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -789,7 +920,12 @@ class _MemoryDetailScreen extends StatelessWidget {
                         ),
                         child: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
                       ),
-                      onPressed: () {},
+                      onPressed: () async {
+                        final text = '${memory.caption ?? 'A beautiful memory'} 📸\n\n'
+                            'Captured at ${memory.ageMonths} months old.\n\n'
+                            'Shared from MotherHood 💗';
+                        await Share.share(text);
+                      },
                     ),
                   ],
                 ),

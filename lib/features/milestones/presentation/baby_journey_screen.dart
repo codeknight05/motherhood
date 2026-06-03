@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,6 +20,7 @@ import '../../../models/memory_model.dart';
 import '../../../models/milestone_library.dart';
 import '../../profile/presentation/profile_screen.dart';
 import 'milestone_guidance_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Baby Journey Screen — Milestones + Memory Diary merged with TabBar
@@ -2164,7 +2165,12 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
                           size: 18,
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () async {
+                        final text = '${widget.memory.caption ?? 'A beautiful memory'} 📸\n\n'
+                            'Captured at ${widget.memory.ageMonths} months old.\n\n'
+                            'Shared from MotherHood 💗';
+                        await Share.share(text);
+                      },
                     ),
                     const SizedBox(width: 8),
                     IconButton(

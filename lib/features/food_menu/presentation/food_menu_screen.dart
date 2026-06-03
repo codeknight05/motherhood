@@ -11,6 +11,7 @@ import '../../../core/providers/baby_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/recipe_model.dart';
 import 'recipe_detail_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import 'weekly_meal_plan_screen.dart';
 import 'bookmarked_recipes_screen.dart';
 import 'ai_recipes_screen.dart';
@@ -114,7 +115,14 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary, size: 24),
-          onPressed: () {},
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('Search feature coming soon!'),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+            ));
+          },
         ),
         const NotificationBell(),
         const SizedBox(width: 4),
@@ -148,7 +156,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () {},
+            onTap: () => ProfileScreen.showEditBabySheet(context, ref, baby),
             child: Row(
               children: [
                 Text(

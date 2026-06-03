@@ -11,6 +11,7 @@ import '../../../core/providers/baby_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../features/auth/presentation/login_screen.dart';
+import '../../../core/widgets/notifications_sheet.dart';
 import '../../../features/onboarding/presentation/baby_setup_screen.dart';
 import '../../../models/baby_model.dart';
 import 'help_faq_screen.dart';
@@ -46,7 +47,15 @@ class ProfileScreen extends ConsumerWidget {
                 _buildMenuCard([
                   _MenuItem(icon: Icons.person_outline_rounded, label: 'Edit Profile', color: AppColors.primary, onTap: () => _showEditProfileSheet(context, user)),
                   _MenuItem(icon: Icons.child_care_rounded, label: 'Edit Baby Details', color: AppColors.accentPink, onTap: () => ProfileScreen.showEditBabySheet(context, ref, baby)),
-                  _MenuItem(icon: Icons.notifications_outlined, label: 'Notifications', color: AppColors.accentOrange, onTap: () {}),
+                  _MenuItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Notifications',
+                    color: AppColors.accentOrange,
+                    onTap: () {
+                      final isPregnant = baby?.isExpected ?? false;
+                      showNotificationsSheet(context, isPregnant: isPregnant);
+                    },
+                  ),
                 ]),
                 const SizedBox(height: AppConstants.paddingL),
                 _buildSectionLabel('Data & Privacy'),

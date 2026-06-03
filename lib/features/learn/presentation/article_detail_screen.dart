@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../models/article_model.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ArticleDetailScreen extends StatefulWidget {
   final ArticleModel article;
@@ -15,6 +17,13 @@ class ArticleDetailScreen extends StatefulWidget {
 class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   bool _bookmarked = false;
   bool? _helpful; // true = yes, false = no
+
+  Future<void> _shareArticle() async {
+    final text = 'Read "${widget.article.title}" in MotherHood app! 💗\n\n'
+        '${widget.article.subtitle}\n\n'
+        'Category: ${widget.article.category}';
+    await Share.share(text);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +74,19 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.share_outlined, color: AppColors.textPrimary, size: 22),
-          onPressed: () {},
+          onPressed: _shareArticle,
         ),
         IconButton(
           icon: const Icon(Icons.more_horiz_rounded, color: AppColors.textPrimary, size: 22),
-          onPressed: () {},
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: widget.article.title));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('Article title copied to clipboard'),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+            ));
+          },
         ),
       ],
     );

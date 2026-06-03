@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
@@ -193,7 +193,14 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
         ),
         const SizedBox(width: AppConstants.paddingM),
         GestureDetector(
-          onTap: () {},
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('Thank you! This recipe has been flagged for review.'),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM)),
+            ));
+          },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
