@@ -32,6 +32,10 @@ create policy "Users can insert own profile"
   on public.profiles for insert
   with check (auth.uid() = id);
 
+create policy "Users can delete own profile"
+  on public.profiles for delete
+  using (auth.uid() = id);
+
 -- Auto-create profile on sign-up
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$

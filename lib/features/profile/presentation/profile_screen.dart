@@ -388,6 +388,13 @@ class ProfileScreen extends ConsumerWidget {
                   await Supabase.instance.client.auth.updateUser(
                     UserAttributes(data: {'full_name': nameController.text.trim()}),
                   );
+                  final currentUser = Supabase.instance.client.auth.currentUser;
+                  if (currentUser != null) {
+                    await Supabase.instance.client
+                        .from('profiles')
+                        .update({'full_name': nameController.text.trim()})
+                        .eq('id', currentUser.id);
+                  }
                   if (context.mounted) Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusM))),
