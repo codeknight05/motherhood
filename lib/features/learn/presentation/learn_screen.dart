@@ -53,9 +53,6 @@ class _LearnScreenState extends State<LearnScreen> {
           final videos = resources
               .where((r) => r.resourceType.toLowerCase().contains('video'))
               .toList();
-          final audio = resources
-              .where((r) => r.resourceType.toLowerCase().contains('audio'))
-              .toList();
           final trending = resources.where((r) => r.isTrending).toList();
 
           return RefreshIndicator(
@@ -91,12 +88,6 @@ class _LearnScreenState extends State<LearnScreen> {
                           title: 'Watch',
                           resources: videos,
                           icon: Icons.play_circle_rounded,
-                        ),
-                        const SizedBox(height: AppConstants.paddingXL),
-                        _buildMediaSection(
-                          title: 'Listen',
-                          resources: audio,
-                          icon: Icons.headphones_rounded,
                         ),
                         const SizedBox(height: AppConstants.paddingXL),
                         _buildTrending(trending),
