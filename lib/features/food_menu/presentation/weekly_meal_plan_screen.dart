@@ -15,7 +15,13 @@ import 'allergy_guide_screen.dart';
 class WeeklyMealPlanScreen extends ConsumerStatefulWidget {
   final String ageGroup;
   final int initialDay;
-  const WeeklyMealPlanScreen({super.key, this.ageGroup = '6-8 Months', this.initialDay = 0});
+  final String role;
+  const WeeklyMealPlanScreen({
+    super.key,
+    this.ageGroup = '6–8 Months',
+    this.initialDay = 0,
+    this.role = 'parent',
+  });
 
   @override
   ConsumerState<WeeklyMealPlanScreen> createState() => _WeeklyMealPlanScreenState();
@@ -31,6 +37,12 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
   void initState() {
     super.initState();
     _selectedDay = widget.initialDay;
+    Future.microtask(() {
+      ref.read(weeklyMealPlanProvider.notifier).loadWeeklyMealPlan(
+            role: widget.role,
+            ageGroup: widget.ageGroup,
+          );
+    });
   }
 
   List<Map<String, dynamic>> get _days {
@@ -422,6 +434,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
   }
 
   Widget _buildNutritionBanner() {
+    final isPregnant = widget.role == 'pregnant';
     return Container(
       padding: const EdgeInsets.all(AppConstants.paddingL),
       decoration: BoxDecoration(
@@ -437,10 +450,15 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Balanced nutrition for your baby', style: AppTextStyles.titleLarge),
+                Text(
+                  isPregnant ? 'Balanced nutrition for your pregnancy' : 'Balanced nutrition for your baby',
+                  style: AppTextStyles.titleLarge,
+                ),
                 const SizedBox(height: 2),
                 Text(
-                  'This plan includes easy, wholesome recipes with the right mix of nutrients for healthy growth.',
+                  isPregnant
+                      ? 'This plan includes nutrient-rich, wholesome recipes with the right mix of vitamins and minerals for a healthy pregnancy.'
+                      : 'This plan includes easy, wholesome recipes with the right mix of nutrients for healthy growth.',
                   style: AppTextStyles.bodySmall,
                 ),
               ],
@@ -538,6 +556,19 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
 
   Widget _buildMealTable() {
     final weeklyMeals = ref.watch(weeklyMealPlanProvider);
+    if (weeklyMeals.isEmpty) {
+      return Container(
+        height: 220,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusL),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
     final dayMeals = weeklyMeals[_selectedDay] ?? weeklyMeals[0]!;
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isSmallScreen = screenWidth < 600;
@@ -691,6 +722,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
 
   Widget _buildShoppingListSection() {
     final weeklyMeals = ref.watch(weeklyMealPlanProvider);
+    if (weeklyMeals.isEmpty) return const SizedBox.shrink();
     final shoppingList = _compileShoppingList(weeklyMeals);
 
     return Column(
@@ -916,6 +948,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
     
     final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     final weeklyMeals = ref.read(weeklyMealPlanProvider);
+    if (weeklyMeals.isEmpty) return 'No meal plan loaded yet.';
     for (int dayIdx = 0; dayIdx < 7; dayIdx++) {
       buffer.writeln('📅 ${daysOfWeek[dayIdx]}:');
       final meals = weeklyMeals[dayIdx] ?? weeklyMeals[0]!;

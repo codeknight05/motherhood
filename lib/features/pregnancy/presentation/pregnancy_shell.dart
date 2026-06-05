@@ -45,7 +45,7 @@ class _PregnancyShellState extends ConsumerState<PregnancyShell> {
   final List<Widget> _screens = const [
     HomeScreen(role: 'pregnant'),
     PregnancyHomeScreen(),
-    FoodMenuScreen(),
+    FoodMenuScreen(role: 'pregnant'),
     CommunitiesListScreen(),
     LearnScreen(),
   ];

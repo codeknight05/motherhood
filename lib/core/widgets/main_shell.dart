@@ -111,7 +111,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   final List<Widget> _screens = const [
     HomeScreen(),
     MilestonesScreen(),
-    FoodMenuScreen(),
+    FoodMenuScreen(role: 'parent'),
     CommunitiesListScreen(),
     LearnScreen(),
   ];

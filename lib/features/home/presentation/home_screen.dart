@@ -128,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 'milestones':
         _goToMilestones();
       case 'food':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const FoodMenuScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => FoodMenuScreen(role: widget.role)));
       case 'vaccination':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const VaccinationScreen()));
       case 'community':

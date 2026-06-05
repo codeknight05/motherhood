@@ -18,7 +18,8 @@ import 'ai_recipes_screen.dart';
 import 'allergy_guide_screen.dart';
 
 class FoodMenuScreen extends ConsumerStatefulWidget {
-  const FoodMenuScreen({super.key});
+  final String role;
+  const FoodMenuScreen({super.key, this.role = 'parent'});
 
   @override
   ConsumerState<FoodMenuScreen> createState() => _FoodMenuScreenState();
@@ -28,11 +29,11 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   int _selectedAgeGroup = 0;
 
   final List<Map<String, String>> _ageGroups = [
-    {'label': '6–8\nMonths', 'emoji': '🍼'},
-    {'label': '9–12\nMonths', 'emoji': '🥣'},
-    {'label': '1–2\nYears', 'emoji': '🍱'},
-    {'label': '2–4\nYears', 'emoji': '🧒'},
-    {'label': '4–6\nYears', 'emoji': '👦'},
+    {'label': '6\nMonths', 'emoji': '🍼'},
+    {'label': '6–8\nMonths', 'emoji': '🥣'},
+    {'label': '8–10\nMonths', 'emoji': '🥑'},
+    {'label': '10–12\nMonths', 'emoji': '🍱'},
+    {'label': '1–2\nYears', 'emoji': '🧒'},
   ];
 
   final List<Map<String, dynamic>> _quickCategories = [
@@ -214,7 +215,9 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Fresh, innovative recipes generated daily\njust for your baby\'s age & needs',
+                    widget.role == 'pregnant'
+                        ? 'Fresh, innovative recipes generated daily\njust for your pregnancy needs'
+                        : 'Fresh, innovative recipes generated daily\njust for your baby\'s age & needs',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: Colors.white.withValues(alpha: 0.9),
                     ),
@@ -243,6 +246,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   }
 
   Widget _buildAgeGroupSelector() {
+    if (widget.role == 'pregnant') return const SizedBox.shrink();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -353,7 +357,8 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => WeeklyMealPlanScreen(
-              ageGroup: _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
+              ageGroup: widget.role == 'pregnant' ? 'Pregnancy' : _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
+              role: widget.role,
             ),
           ),
         );
@@ -390,7 +395,12 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   }
 
   Widget _buildTodaysPicks() {
-    final picks = sampleRecipes.take(4).toList();
+    final picks = sampleRecipes
+        .where((r) => widget.role == 'pregnant'
+            ? r.ageGroups.contains('pregnant')
+            : !r.ageGroups.contains('pregnant'))
+        .take(4)
+        .toList();
     final tagColors = [AppColors.accentGreen, AppColors.accentOrange, AppColors.primary, AppColors.accentPink];
 
     return Column(
@@ -512,6 +522,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   }
 
   Widget _buildWeeklyMealPlan() {
+    final bool isPregnant = widget.role == 'pregnant';
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,8 +534,14 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Weekly Meal Plan (6–8 Months)', style: AppTextStyles.titleLarge),
-                    Text('Balanced nutrition for your baby', style: AppTextStyles.bodySmall),
+                    Text(
+                      isPregnant ? 'Weekly Meal Plan (Pregnancy)' : 'Weekly Meal Plan (${_ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' ')})',
+                      style: AppTextStyles.titleLarge,
+                    ),
+                    Text(
+                      isPregnant ? 'Balanced nutrition for your pregnancy' : 'Balanced nutrition for your baby',
+                      style: AppTextStyles.bodySmall,
+                    ),
                   ],
                 ),
               ),
@@ -532,7 +549,12 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
               OutlinedButton(
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => WeeklyMealPlanScreen(ageGroup: _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '))),
+                  MaterialPageRoute(
+                    builder: (_) => WeeklyMealPlanScreen(
+                      ageGroup: isPregnant ? 'Pregnancy' : _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
+                      role: widget.role,
+                    ),
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.accentOrange,
@@ -561,8 +583,9 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => WeeklyMealPlanScreen(
-                        ageGroup: _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
+                        ageGroup: isPregnant ? 'Pregnancy' : _ageGroups[_selectedAgeGroup]['label']!.replaceAll('\n', ' '),
                         initialDay: index,
+                        role: widget.role,
                       ),
                     ),
                   ),
@@ -588,7 +611,11 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                         child: const Center(child: Text('🍲', style: TextStyle(fontSize: 16))),
                       ),
                       const SizedBox(height: 3),
-                      Text('4 Meals', style: AppTextStyles.labelSmall.copyWith(fontSize: 9), textAlign: TextAlign.center),
+                      Text(
+                        '4 Meals',
+                        style: AppTextStyles.labelSmall.copyWith(fontSize: 9),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
