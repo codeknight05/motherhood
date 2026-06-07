@@ -307,7 +307,7 @@ def main():
     else:
         print(f"Local version code ({current_code}) is already higher than Google Play's ({max_playstore_code}). No auto-increment needed.")
         
-    # 4. Compile the bundle
+    # 4. Compile the bundle (using the pre-compiled bundle)
     build_appbundle()
     
     # 5. Upload and publish
