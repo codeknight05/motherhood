@@ -99,7 +99,6 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
   }
 
   int get _totalSteps {
-    if (_role == UserRole.family) return 1;
     return 2;
   }
 
@@ -178,19 +177,6 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
 
     if (!mounted) return;
 
-    if (_role == UserRole.family) {
-      Navigator.of(context).pushAndRemoveUntil(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const MainShell(),
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
-          transitionDuration: const Duration(milliseconds: 400),
-        ),
-        (_) => false,
-      );
-      return;
-    }
-
     if (_role == UserRole.pregnant) {
       await ref
           .read(babyProvider.notifier)
@@ -214,13 +200,13 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
       return;
     }
 
-    // Parent — save baby details
+    // Parent or Family — save baby details
     if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
       return;
     }
     if (_birthDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your baby\'s birth date')),
+        const SnackBar(content: Text('Please select the child\'s birth date')),
       );
       return;
     }
@@ -262,10 +248,6 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
         );
         return;
       }
-      if (_role == UserRole.family) {
-        _saveAndContinue();
-        return;
-      }
       setState(() => _step = 1);
     } else {
       _saveAndContinue();
@@ -284,7 +266,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
         child: Column(
           children: [
             _buildHeader(),
-            if (_role != UserRole.family) _buildStepIndicator(),
+            _buildStepIndicator(),
             Expanded(
               child: SingleChildScrollView(
                 keyboardDismissBehavior:
@@ -303,7 +285,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
                       if (_step == 0) _buildRoleStep(),
                       if (_step == 1 && _role == UserRole.pregnant)
                         _buildPregnantStep(),
-                      if (_step == 1 && _role == UserRole.parent)
+                      if (_step == 1 && (_role == UserRole.parent || _role == UserRole.family))
                         _buildParentStep(),
                       const SizedBox(height: 40),
                     ],
@@ -332,7 +314,9 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
       UserRole.parent: _step == 0
           ? 'Tell us about\nyourself'
           : 'About your baby',
-      UserRole.family: 'Tell us about\nyourself',
+      UserRole.family: _step == 0
+          ? 'Tell us about\nyourself'
+          : 'About the child',
     };
     final subtitles = {
       null: 'So we can personalise your experience',
@@ -342,7 +326,9 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
       UserRole.parent: _step == 0
           ? 'So we can personalise your experience'
           : 'You can always update these later',
-      UserRole.family: 'So we can personalise your experience',
+      UserRole.family: _step == 0
+          ? 'So we can personalise your experience'
+          : 'Enter details of the child you wish to follow',
     };
 
     return Padding(
