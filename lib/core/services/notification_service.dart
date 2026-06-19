@@ -60,17 +60,17 @@ class NotificationService {
 
       // Create Android Notification Channels
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'motherhood_high_importance_channel',
+        'motherhood_high_importance_channel_v2',
         'MotherHood Notifications',
         description: 'This channel is used for MotherHood push notifications.',
-        importance: Importance.high,
+        importance: Importance.max,
       );
 
       const AndroidNotificationChannel inactivityChannel = AndroidNotificationChannel(
-        'motherhood_inactivity_channel',
+        'motherhood_inactivity_channel_v2',
         'Inactivity Reminders',
         description: 'Reminders sent when you have not opened the app today.',
-        importance: Importance.high,
+        importance: Importance.max,
       );
 
       final androidPlugin = _localNotifications
@@ -120,6 +120,9 @@ class NotificationService {
                 channel.name,
                 channelDescription: channel.description,
                 icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+                importance: Importance.max,
+                priority: Priority.high,
+                playSound: true,
               ),
             ),
             payload: message.data.toString(),
@@ -178,7 +181,7 @@ class NotificationService {
 
   static const bool isTestingMode = false; // Set to false for production
   static const int _inactivityStartId = 900;
-  static const int _numReminders = 5;
+  static const int _numReminders = 12;
   static final List<Timer> _testTimers = []; // Store active Dart timers for testing
 
   /// Schedules inactivity notifications.
@@ -207,10 +210,10 @@ class NotificationService {
     ];
 
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'motherhood_inactivity_channel',
+      'motherhood_inactivity_channel_v2',
       'Inactivity Reminders',
       channelDescription: 'Reminders sent when you have not opened the app today.',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
     );

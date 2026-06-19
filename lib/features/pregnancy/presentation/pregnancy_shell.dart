@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,6 +88,7 @@ class _PregnancyShellState extends ConsumerState<PregnancyShell> {
       child: Stack(
         children: [
           Scaffold(
+            extendBody: true,
             body: IndexedStack(index: _currentIndex, children: _screens),
             bottomNavigationBar: _buildBottomNav(),
           ),
@@ -153,51 +155,62 @@ class _PregnancyShellState extends ConsumerState<PregnancyShell> {
   }
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.navBackground,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                isSelected: _currentIndex == 0,
-                onTap: () => setState(() => _currentIndex = 0),
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding > 0 ? bottomPadding : 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Container(
+            height: 68,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 1.5,
               ),
-              _NavItem(
-                icon: Icons.favorite_rounded,
-                label: 'Journey',
-                isSelected: _currentIndex == 1,
-                onTap: () => setState(() => _currentIndex = 1),
-              ),
-              _CenterNavItem(
-                isSelected: _currentIndex == 2,
-                onTap: () => setState(() => _currentIndex = 2),
-              ),
-              _NavItem(
-                icon: Icons.people_rounded,
-                label: 'Community',
-                isSelected: _currentIndex == 3,
-                onTap: () => setState(() => _currentIndex = 3),
-              ),
-              _NavItem(
-                icon: Icons.menu_book_rounded,
-                label: 'Learn',
-                isSelected: _currentIndex == 4,
-                onTap: () => setState(() => _currentIndex = 4),
-              ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                _NavItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  isSelected: _currentIndex == 0,
+                  onTap: () => setState(() => _currentIndex = 0),
+                ),
+                _NavItem(
+                  icon: Icons.favorite_rounded,
+                  label: 'Journey',
+                  isSelected: _currentIndex == 1,
+                  onTap: () => setState(() => _currentIndex = 1),
+                ),
+                _CenterNavItem(
+                  isSelected: _currentIndex == 2,
+                  onTap: () => setState(() => _currentIndex = 2),
+                ),
+                _NavItem(
+                  icon: Icons.people_rounded,
+                  label: 'Community',
+                  isSelected: _currentIndex == 3,
+                  onTap: () => setState(() => _currentIndex = 3),
+                ),
+                _NavItem(
+                  icon: Icons.menu_book_rounded,
+                  label: 'Learn',
+                  isSelected: _currentIndex == 4,
+                  onTap: () => setState(() => _currentIndex = 4),
+                ),
+              ],
+            ),
           ),
         ),
       ),
