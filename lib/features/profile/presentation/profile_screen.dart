@@ -104,7 +104,7 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildSignOutButton(context, ref),
                 const SizedBox(height: AppConstants.paddingL),
-                Center(child: Text('MotherHood v1.0.0', style: AppTextStyles.labelSmall)),
+                Center(child: Text('Moms of Tomorrow v1.0.1', style: AppTextStyles.labelSmall)),
                 const SizedBox(height: 40),
               ]),
             ),

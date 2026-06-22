@@ -19,7 +19,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   bool? _helpful; // true = yes, false = no
 
   Future<void> _shareArticle() async {
-    final text = 'Read "${widget.article.title}" in MotherHood app! 💗\n\n'
+    final text = 'Read "${widget.article.title}" in Moms of Tomorrow app! 💗\n\n'
         '${widget.article.subtitle}\n\n'
         'Category: ${widget.article.category}';
     await Share.share(text);

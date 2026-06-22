@@ -944,7 +944,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
 
   String _getShareText() {
     final buffer = StringBuffer();
-    buffer.writeln('🌸 MOTHERHOOD WEEKLY MEAL PLAN (${widget.ageGroup}) 🌸\n');
+    buffer.writeln('🌸 MOMS OF TOMORROW WEEKLY MEAL PLAN (${widget.ageGroup}) 🌸\n');
     
     final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     final weeklyMeals = ref.read(weeklyMealPlanProvider);

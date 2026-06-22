@@ -54,7 +54,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             _buildSection(
               '6. Contact Support',
-              'For any questions, concerns, or requests regarding this Privacy Policy or your personal information, please reach out to our team at support@motherhood-app.com.',
+              'For any questions, concerns, or requests regarding this Privacy Policy or your personal information, please reach out to our team at support@momsoftomorrow-app.com.',
             ),
             const SizedBox(height: 40),
           ],

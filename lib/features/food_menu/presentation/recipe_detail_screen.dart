@@ -36,7 +36,7 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
         '⏱ ${recipe.cookTimeMinutes} mins  |  🔥 ${recipe.calories} cal\n\n'
         '📝 $desc\n\n'
         '🥗 Ingredients:\n$ingredientList\n\n'
-        'Shared from MotherHood 💗 — Your parenting companion';
+        'Shared from Moms of Tomorrow 💗 — Nurture Today, Raise Tomorrow';
 
     await Share.share(text, subject: recipe.name);
   }

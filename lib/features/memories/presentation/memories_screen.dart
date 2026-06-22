@@ -923,7 +923,7 @@ class _MemoryDetailScreen extends StatelessWidget {
                       onPressed: () async {
                         final text = '${memory.caption ?? 'A beautiful memory'} 📸\n\n'
                             'Captured at ${memory.ageMonths} months old.\n\n'
-                            'Shared from MotherHood 💗';
+                            'Shared from Moms of Tomorrow 💗';
                         await Share.share(text);
                       },
                     ),

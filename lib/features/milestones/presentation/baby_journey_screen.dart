@@ -1117,7 +1117,7 @@ class _MemoryDiaryTabState extends ConsumerState<_MemoryDiaryTab> {
           ],
         ),
         Positioned(
-          bottom: 16,
+          bottom: 100,
           right: 0,
           left: 0,
           child: Center(
@@ -2168,7 +2168,7 @@ class _MemoryDetailScreenState extends State<_MemoryDetailScreen> {
                       onPressed: () async {
                         final text = '${widget.memory.caption ?? 'A beautiful memory'} 📸\n\n'
                             'Captured at ${widget.memory.ageMonths} months old.\n\n'
-                            'Shared from MotherHood 💗';
+                            'Shared from Moms of Tomorrow 💗';
                         await Share.share(text);
                       },
                     ),

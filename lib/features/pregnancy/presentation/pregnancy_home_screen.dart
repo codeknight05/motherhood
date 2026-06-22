@@ -190,7 +190,7 @@ class _HeroHeader extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFFF8FAB), Color(0xFFFFB3C6), Color(0xFFFFCCD5)],
+          colors: [Color(0xFF6B2D8B), Color(0xFFFF8FAB), Color(0xFFFFB3C6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -329,58 +329,70 @@ class _WombIllustration extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer glow ring
-          Container(
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.15),
-                  Colors.white.withValues(alpha: 0.0),
-                ],
+          // Outer glow ring — pulses softly
+          ScaleTransition(
+            scale: pulseAnim,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.15),
+                    Colors.white.withValues(alpha: 0.0),
+                  ],
+                ),
               ),
             ),
           ),
-          // Womb circle — warm pinkish-red like the image
-          Container(
-            width: 180,
-            height: 180,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                colors: [Color(0xFFFF6B8A), Color(0xFFE8405A)],
-                center: Alignment(-0.3, -0.3),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFE8405A).withValues(alpha: 0.4),
-                  blurRadius: 30,
-                  spreadRadius: 5,
+          // Womb circle — warm pinkish-red, pulses organically
+          ScaleTransition(
+            scale: pulseAnim,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  colors: [Color(0xFFFF6B8A), Color(0xFFE8405A)],
+                  center: Alignment(-0.3, -0.3),
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFE8405A).withValues(alpha: 0.4),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
             ),
           ),
           // Inner amniotic fluid effect
-          Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFFFF8FAB).withValues(alpha: 0.6),
-                  Colors.transparent,
-                ],
-                center: Alignment(0.2, 0.2),
+          ScaleTransition(
+            scale: pulseAnim,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFFF8FAB).withValues(alpha: 0.6),
+                    Colors.transparent,
+                  ],
+                  center: Alignment(0.2, 0.2),
+                ),
               ),
             ),
           ),
           // Umbilical cord hint (custom painter)
-          CustomPaint(
-            size: const Size(160, 160),
-            painter: _CordPainter(),
+          ScaleTransition(
+            scale: pulseAnim,
+            child: CustomPaint(
+              size: const Size(160, 160),
+              painter: _CordPainter(),
+            ),
           ),
           // Baby emoji — pulsing
           ScaleTransition(

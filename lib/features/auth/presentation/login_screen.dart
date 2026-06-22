@@ -176,7 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         const SizedBox(height: 6),
         Text(
           _isSignUp
-              ? 'Start your parenting journey with MotherHood'
+              ? 'Start your parenting journey with Moms of Tomorrow'
               : 'Sign in to continue your parenting journey',
           style: AppTextStyles.bodyMedium,
         ),

@@ -88,7 +88,7 @@ class _MotherHoodAppState extends State<MotherHoodApp> with WidgetsBindingObserv
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MotherHood',
+      title: 'Moms of Tomorrow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       builder: (context, child) => MediaQuery(

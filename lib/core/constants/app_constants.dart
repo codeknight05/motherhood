@@ -1,8 +1,8 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'MotherHood';
-  static const String appTagline = 'Your parenting companion';
+  static const String appName = 'Moms of Tomorrow';
+  static const String appTagline = 'Nurture Today, Raise Tomorrow';
 
   // Spacing
   static const double paddingXS = 4.0;

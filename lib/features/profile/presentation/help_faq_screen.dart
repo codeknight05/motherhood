@@ -8,12 +8,12 @@ class HelpFaqScreen extends StatelessWidget {
 
   static const List<Map<String, String>> _faqs = [
     {
-      'question': 'What is MotherHood?',
-      'answer': 'MotherHood is your dedicated parenting and pregnancy companion. We provide personalized weekly guidelines, custom nutrition meal plans, vaccination trackers, and a private memory diary to help you navigate every stage of motherhood.'
+      'question': 'What is Moms of Tomorrow?',
+      'answer': 'Moms of Tomorrow is your dedicated parenting and pregnancy companion. We provide personalized weekly guidelines, custom nutrition meal plans, vaccination trackers, and a private memory diary to help you navigate every stage of motherhood.'
     },
     {
       'question': 'Is the advice in the app medical?',
-      'answer': 'No. All insights, milestones, nutrition advice, and guides are for informational and educational purposes only. MotherHood does not provide medical advice. Always consult with a qualified pediatrician or healthcare provider for any medical concerns.'
+      'answer': 'No. All insights, milestones, nutrition advice, and guides are for informational and educational purposes only. Moms of Tomorrow does not provide medical advice. Always consult with a qualified pediatrician or healthcare provider for any medical concerns.'
     },
     {
       'question': 'How do vaccination reminders work?',

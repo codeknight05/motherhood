@@ -209,7 +209,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'MotherHood',
+                      'Moms of Tomorrow',
                       style: AppTextStyles.displayLarge.copyWith(
                         color: const Color(0xFF6B2D8B),
                         fontWeight: FontWeight.w800,
@@ -218,7 +218,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Your parenting companion',
+                      'Nurture Today, Raise Tomorrow',
                       style: AppTextStyles.bodyLarge.copyWith(
                         color: const Color(0xFF9B6BB5),
                       ),

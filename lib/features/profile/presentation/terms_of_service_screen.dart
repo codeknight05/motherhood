@@ -30,7 +30,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             const SizedBox(height: AppConstants.paddingL),
             _buildSection(
               '1. Acceptance of Terms',
-              'By accessing, downloading, or using the MotherHood mobile application ("the App"), you agree to be bound by these Terms of Service. If you do not agree to these terms, you are not authorized to use the App and must uninstall it immediately.',
+              'By accessing, downloading, or using the Moms of Tomorrow mobile application ("the App"), you agree to be bound by these Terms of Service. If you do not agree to these terms, you are not authorized to use the App and must uninstall it immediately.',
             ),
             _buildSection(
               '2. Eligibility',
@@ -46,7 +46,7 @@ class TermsOfServiceScreen extends StatelessWidget {
             ),
             _buildSection(
               '5. Limitation of Liability',
-              'To the maximum extent permitted by law, MotherHood, its developers, and affiliates shall not be liable for any direct, indirect, special, incidental, consequential, or exemplary damages arising out of your use of, or inability to use, the App. This includes health decisions made based on general advice rendered by the App.',
+              'To the maximum extent permitted by law, Moms of Tomorrow, its developers, and affiliates shall not be liable for any direct, indirect, special, incidental, consequential, or exemplary damages arising out of your use of, or inability to use, the App. This includes health decisions made based on general advice rendered by the App.',
             ),
             _buildSection(
               '6. Changes to Services & Terms',

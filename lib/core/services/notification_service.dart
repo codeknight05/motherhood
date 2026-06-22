@@ -61,8 +61,8 @@ class NotificationService {
       // Create Android Notification Channels
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
         'motherhood_high_importance_channel_v2',
-        'MotherHood Notifications',
-        description: 'This channel is used for MotherHood push notifications.',
+        'Moms of Tomorrow Notifications',
+        description: 'This channel is used for Moms of Tomorrow push notifications.',
         importance: Importance.max,
       );
 
@@ -204,7 +204,7 @@ class NotificationService {
     final List<String> bodies = [
       'You haven\'t checked in today. Open the app to view your daily tips and baby updates!',
       'Take a moment to record your baby\'s progress and check your customized insights.',
-      'See what\'s new in your motherhood journey today.',
+      'See what\'s new in your Moms of Tomorrow journey today.',
       'Keep track of your health and pregnancy tips. We\'re here to support you.',
       'Log your activities for today to keep your daily log up-to-date.'
     ];
