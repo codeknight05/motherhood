@@ -9,7 +9,7 @@ class HelpFaqScreen extends StatelessWidget {
   static const List<Map<String, String>> _faqs = [
     {
       'question': 'What is Moms of Tomorrow?',
-      'answer': 'Moms of Tomorrow is your dedicated parenting and pregnancy companion. We provide personalized weekly guidelines, custom nutrition meal plans, vaccination trackers, and a private memory diary to help you navigate every stage of motherhood.'
+      'answer': 'Moms of Tomorrow is your trusted companion from pregnancy to parenting. Track baby milestones, follow weekly pregnancy updates, access nutrition plans, discover expert parenting advice, and connect with a supportive mom community. Empowering mothers with knowledge, confidence, and care from the first heartbeat to early childhood. 💜'
     },
     {
       'question': 'Is the advice in the app medical?',
