@@ -1,11 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../admin/milestone_seed_screen.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/baby_provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -64,20 +62,6 @@ class ProfileScreen extends ConsumerWidget {
                   _MenuItem(icon: Icons.refresh_rounded, label: 'Reset & Start Over', color: AppColors.warning, onTap: () => _confirmReset(context, ref)),
                   _MenuItem(icon: Icons.delete_outline_rounded, label: 'Delete All My Data', color: AppColors.error, onTap: () => _confirmDeleteAll(context, ref)),
                 ]),
-                // Developer tools — debug builds only
-                if (kDebugMode) ...[
-                  const SizedBox(height: AppConstants.paddingL),
-                  _buildSectionLabel('Developer Tools'),
-                  const SizedBox(height: AppConstants.paddingS),
-                  _buildMenuCard([
-                    _MenuItem(
-                      icon: Icons.upload_rounded,
-                      label: 'Seed Milestone Guidance',
-                      color: AppColors.accentBlue,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MilestoneSeedScreen())),
-                    ),
-                  ]),
-                ],
                 const SizedBox(height: AppConstants.paddingL),
                 _buildSectionLabel('Support'),
                 const SizedBox(height: AppConstants.paddingS),

@@ -26,21 +26,45 @@ class PregnancyShell extends ConsumerStatefulWidget {
 
 class _PregnancyShellState extends ConsumerState<PregnancyShell> {
   int _currentIndex = 0;
-  bool _showExitPill = false;
+  DateTime? _lastBackPressTime;
 
   void _handleBackPress() {
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
       return;
     }
-    if (_showExitPill) {
-      SystemNavigator.pop();
+    
+    final now = DateTime.now();
+    if (_lastBackPressTime == null || 
+        now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Press back again to exit',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.black.withValues(alpha: 0.85),
+          duration: const Duration(seconds: 2),
+          width: 220,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          elevation: 4,
+        ),
+      );
       return;
     }
-    setState(() => _showExitPill = true);
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _showExitPill = false);
-    });
+    SystemNavigator.pop();
   }
 
   final List<Widget> _screens = const [
@@ -85,71 +109,10 @@ class _PregnancyShellState extends ConsumerState<PregnancyShell> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _handleBackPress();
       },
-      child: Stack(
-        children: [
-          Scaffold(
-            extendBody: true,
-            body: IndexedStack(index: _currentIndex, children: _screens),
-            bottomNavigationBar: _buildBottomNav(),
-          ),
-          if (_showExitPill)
-            Positioned(
-              bottom: 90,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _showExitPill ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A2E),
-                      borderRadius: BorderRadius.circular(50),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Press back again to exit',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        GestureDetector(
-                          onTap: () => SystemNavigator.pop(),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: AppColors.error,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'Exit',
-                              style: AppTextStyles.labelMedium.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+      child: Scaffold(
+        extendBody: true,
+        body: IndexedStack(index: _currentIndex, children: _screens),
+        bottomNavigationBar: _buildBottomNav(),
       ),
     );
   }

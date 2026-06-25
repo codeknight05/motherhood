@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Session;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
@@ -21,13 +22,34 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   ProviderSubscription<AsyncValue<Session?>>? _sessionSubscription;
   bool _isNavigatingAfterAuth = false;
-  bool _isSignUp = false; // SPA toggle state
+  bool _isSignUp = true; // Default to true if user doesn't have an account
+  bool _isLoadingPrefs = true;
+  final _storage = const FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
+    _checkHasAccount();
     // Listen for auth state changes — catches Google OAuth completing
     _listenForAuthChange();
+  }
+
+  Future<void> _checkHasAccount() async {
+    try {
+      final value = await _storage.read(key: 'has_account');
+      if (mounted) {
+        setState(() {
+          _isSignUp = value != 'true';
+          _isLoadingPrefs = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingPrefs = false;
+        });
+      }
+    }
   }
 
   void _listenForAuthChange() {
@@ -74,6 +96,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } catch (_) {}
     }
 
+    // Save account presence on this device
+    try {
+      await _storage.write(key: 'has_account', value: 'true');
+    } catch (_) {}
+
     await ref.read(babyProvider.notifier).loadBaby();
     if (!mounted) return;
     final hasBaby = ref.read(babyProvider).hasBaby;
@@ -95,6 +122,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingPrefs) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
     final authState = ref.watch(authNotifierProvider);
 
     return Scaffold(
@@ -109,15 +147,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildHeader(),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
+                _buildTabToggle(),
+                const SizedBox(height: 32),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _isSignUp ? _buildFeaturesShowcase() : _buildWelcomeCard(),
+                ),
+                const SizedBox(height: 32),
                 _buildGoogleButton(authState),
                 if (authState.hasError) ...[
                   const SizedBox(height: AppConstants.paddingXL),
                   _buildErrorBanner(authState.errorMessage!),
                 ],
-                const SizedBox(height: 28),
-                _buildToggleMode(),
-                const SizedBox(height: 64),
+                const SizedBox(height: 48),
                 _buildTerms(),
               ],
             ),
@@ -177,6 +220,202 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
+  Widget _buildTabToggle() {
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E8FF), // light lavender background
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Stack(
+        children: [
+          // Sliding indicator
+          AnimatedAlign(
+            alignment: _isSignUp ? Alignment.centerRight : Alignment.centerLeft,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6B2D8B), // brand deep purple
+                  borderRadius: BorderRadius.circular(21),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6B2D8B).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Interactive tab texts
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_isSignUp) {
+                      setState(() => _isSignUp = false);
+                      ref.read(authNotifierProvider.notifier).clearError();
+                    }
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
+                    child: Text(
+                      'Sign In',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: _isSignUp ? const Color(0xFF6B2D8B) : Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (!_isSignUp) {
+                      setState(() => _isSignUp = true);
+                      ref.read(authNotifierProvider.notifier).clearError();
+                    }
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Center(
+                    child: Text(
+                      'Sign Up',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: _isSignUp ? Colors.white : const Color(0xFF6B2D8B),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeaturesShowcase() {
+    final features = [
+      {'emoji': '👶', 'title': 'Milestone Tracker', 'desc': 'Track baby growth & developmental milestones'},
+      {'emoji': '📅', 'title': 'Pregnancy Updates', 'desc': 'Get weekly pregnancy updates & tips'},
+      {'emoji': '🥗', 'title': 'Nutrition Plans', 'desc': 'Access meal planners & dietitian guides'},
+      {'emoji': '💜', 'title': 'Mom Community', 'desc': 'Connect with other moms & share advice'},
+    ];
+
+    return Container(
+      key: const ValueKey('features_showcase'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF3E8FF), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B2D8B).withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'What you get:',
+            style: AppTextStyles.titleMedium.copyWith(
+              color: const Color(0xFF6B2D8B),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...features.map((f) => Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(f['emoji']!, style: const TextStyle(fontSize: 22)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        f['title']!,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF6B2D8B),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        f['desc']!,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: const Color(0xFF9B6BB5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeCard() {
+    return Container(
+      key: const ValueKey('welcome_card'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF3E8FF), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B2D8B).withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text(
+            '👋',
+            style: TextStyle(fontSize: 48),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Welcome back, Mama!',
+            style: AppTextStyles.titleLarge.copyWith(
+              color: const Color(0xFF6B2D8B),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'We are so happy to see you again. Log in to continue tracking and connecting.',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: const Color(0xFF9B6BB5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGoogleButton(AuthState authState) {
     return GestureDetector(
       onTap: authState.isLoading ? null : _signInWithGoogle,
@@ -226,36 +465,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToggleMode() {
-    return Center(
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _isSignUp = !_isSignUp);
-          ref.read(authNotifierProvider.notifier).clearError();
-        },
-        child: RichText(
-          text: TextSpan(
-            style: AppTextStyles.bodyMedium,
-            children: [
-              TextSpan(
-                text: _isSignUp
-                    ? 'Already have an account? '
-                    : "Don't have an account? ",
-              ),
-              TextSpan(
-                text: _isSignUp ? 'Sign In' : 'Sign Up',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
