@@ -30,7 +30,11 @@ class SupabaseService {
 
   /// Sign up with email + password.
   static Future<AuthResponse> signUpWithEmail(String email, String password) {
-    return auth.signUp(email: email, password: password);
+    return auth.signUp(
+      email: email,
+      password: password,
+      emailRedirectTo: 'io.supabase.motherhood://login-callback',
+    );
   }
 
   /// Send OTP to phone number (E.164 format: +91XXXXXXXXXX).
