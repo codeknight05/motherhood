@@ -21,6 +21,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   ProviderSubscription<AsyncValue<Session?>>? _sessionSubscription;
   bool _isNavigatingAfterAuth = false;
+  bool _isSignUp = false; // SPA toggle state
 
   @override
   void initState() {
@@ -108,13 +109,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _buildHeader(),
-                const SizedBox(height: 56),
+                const SizedBox(height: 48),
                 _buildGoogleButton(authState),
                 if (authState.hasError) ...[
                   const SizedBox(height: AppConstants.paddingXL),
                   _buildErrorBanner(authState.errorMessage!),
                 ],
-                const SizedBox(height: 80),
+                const SizedBox(height: 28),
+                _buildToggleMode(),
+                const SizedBox(height: 64),
                 _buildTerms(),
               ],
             ),
@@ -153,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 32),
         Text(
-          'Moms of Tomorrow',
+          _isSignUp ? 'Create Account' : 'Welcome Back',
           style: AppTextStyles.displayMedium.copyWith(
             fontWeight: FontWeight.w800,
             color: const Color(0xFF6B2D8B),
@@ -162,8 +165,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Nurture Today, Raise Tomorrow',
-          style: AppTextStyles.bodyLarge.copyWith(
+          _isSignUp
+              ? 'Start your parenting journey with Moms of Tomorrow'
+              : 'Sign in to continue your parenting journey',
+          style: AppTextStyles.bodyMedium.copyWith(
             color: const Color(0xFF9B6BB5),
           ),
           textAlign: TextAlign.center,
@@ -213,7 +218,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Continue with Google',
+                _isSignUp ? 'Sign up with Google' : 'Sign in with Google',
                 style: AppTextStyles.titleMedium.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -221,6 +226,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleMode() {
+    return Center(
+      child: GestureDetector(
+        onTap: () {
+          setState(() => _isSignUp = !_isSignUp);
+          ref.read(authNotifierProvider.notifier).clearError();
+        },
+        child: RichText(
+          text: TextSpan(
+            style: AppTextStyles.bodyMedium,
+            children: [
+              TextSpan(
+                text: _isSignUp
+                    ? 'Already have an account? '
+                    : "Don't have an account? ",
+              ),
+              TextSpan(
+                text: _isSignUp ? 'Sign In' : 'Sign Up',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
