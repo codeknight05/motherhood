@@ -9,7 +9,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/baby_provider.dart';
+import '../../../core/providers/dietary_preference_provider.dart';
 import '../../../core/widgets/main_shell.dart';
+
 
 // ─── User role ────────────────────────────────────────────────────────────────
 
@@ -78,6 +80,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
 
   int _step = 0;
   UserRole? _role;
+  DietaryPreference _dietaryPreference = DietaryPreference.both;
 
   // Parent fields
   DateTime? _birthDate;
@@ -99,7 +102,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
   }
 
   int get _totalSteps {
-    return 2;
+    return 3;
   }
 
   Future<void> _pickPhoto() async {
@@ -165,6 +168,9 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
   Future<void> _saveAndContinue() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
+
+    // Save dietary preference
+    await ref.read(dietaryPreferenceProvider.notifier).setPreference(_dietaryPreference);
 
     // Save role to profile
     await Supabase.instance.client.from('profiles').upsert({
@@ -249,6 +255,19 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
         return;
       }
       setState(() => _step = 1);
+    } else if (_step == 1) {
+      if (_role == UserRole.parent || _role == UserRole.family) {
+        if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+          return;
+        }
+        if (_birthDate == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select the child\'s birth date')),
+          );
+          return;
+        }
+      }
+      setState(() => _step = 2);
     } else {
       _saveAndContinue();
     }
@@ -287,6 +306,7 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
                         _buildPregnantStep(),
                       if (_step == 1 && (_role == UserRole.parent || _role == UserRole.family))
                         _buildParentStep(),
+                      if (_step == 2) _buildDietaryPreferenceStep(),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -310,25 +330,25 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
       null: 'Tell us about\nyourself',
       UserRole.pregnant: _step == 0
           ? 'Tell us about\nyourself'
-          : 'Your pregnancy',
+          : (_step == 1 ? 'Your pregnancy' : 'Diet Preference'),
       UserRole.parent: _step == 0
           ? 'Tell us about\nyourself'
-          : 'About your baby',
+          : (_step == 1 ? 'About your baby' : 'Diet Preference'),
       UserRole.family: _step == 0
           ? 'Tell us about\nyourself'
-          : 'About the child',
+          : (_step == 1 ? 'About the child' : 'Diet Preference'),
     };
     final subtitles = {
       null: 'So we can personalise your experience',
       UserRole.pregnant: _step == 0
           ? 'So we can personalise your experience'
-          : 'We\'ll track your journey week by week',
+          : (_step == 1 ? 'We\'ll track your journey week by week' : 'Choose what types of food you prefer'),
       UserRole.parent: _step == 0
           ? 'So we can personalise your experience'
-          : 'You can always update these later',
+          : (_step == 1 ? 'You can always update these later' : 'Choose what types of food you prefer'),
       UserRole.family: _step == 0
           ? 'So we can personalise your experience'
-          : 'Enter details of the child you wish to follow',
+          : (_step == 1 ? 'Enter details of the child you wish to follow' : 'Choose what types of food you prefer'),
     };
 
     return Padding(
@@ -740,6 +760,139 @@ class _BabySetupScreenState extends ConsumerState<BabySetupScreen> {
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDietaryPreferenceStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Dietary Preference',
+          style: AppTextStyles.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'We\'ll tailor the food menu and recipe suggestions based on your choice.',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppConstants.paddingXL),
+        GestureDetector(
+          onTap: () => setState(() => _dietaryPreference = DietaryPreference.both),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(AppConstants.paddingL),
+            decoration: BoxDecoration(
+              color: _dietaryPreference == DietaryPreference.both ? AppColors.primaryLight : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              border: Border.all(
+                color: _dietaryPreference == DietaryPreference.both ? AppColors.primary : AppColors.divider,
+                width: _dietaryPreference == DietaryPreference.both ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text('🍲', style: TextStyle(fontSize: 26)),
+                const SizedBox(width: AppConstants.paddingM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Both Veg & Non-Veg',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: _dietaryPreference == DietaryPreference.both ? AppColors.primary : AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Show all recipes including eggs, chicken, and fish', style: AppTextStyles.bodySmall),
+                    ],
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _dietaryPreference == DietaryPreference.both ? AppColors.primary : Colors.transparent,
+                    border: Border.all(
+                      color: _dietaryPreference == DietaryPreference.both ? AppColors.primary : AppColors.divider,
+                      width: 2,
+                    ),
+                  ),
+                  child: _dietaryPreference == DietaryPreference.both
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppConstants.paddingM),
+        GestureDetector(
+          onTap: () => setState(() => _dietaryPreference = DietaryPreference.veg),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(AppConstants.paddingL),
+            decoration: BoxDecoration(
+              color: _dietaryPreference == DietaryPreference.veg ? AppColors.primaryLight : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              border: Border.all(
+                color: _dietaryPreference == DietaryPreference.veg ? AppColors.primary : AppColors.divider,
+                width: _dietaryPreference == DietaryPreference.veg ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text('🥦', style: TextStyle(fontSize: 26)),
+                const SizedBox(width: AppConstants.paddingM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Veg Only',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          color: _dietaryPreference == DietaryPreference.veg ? AppColors.primary : AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Hide all non-vegetarian options (egg-free and meat-free)', style: AppTextStyles.bodySmall),
+                    ],
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _dietaryPreference == DietaryPreference.veg ? AppColors.primary : Colors.transparent,
+                    border: Border.all(
+                      color: _dietaryPreference == DietaryPreference.veg ? AppColors.primary : AppColors.divider,
+                      width: 2,
+                    ),
+                  ),
+                  child: _dietaryPreference == DietaryPreference.veg
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );

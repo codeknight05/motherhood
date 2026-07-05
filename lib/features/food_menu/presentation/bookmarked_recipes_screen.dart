@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/providers/recipe_provider.dart';
+import '../../../core/providers/dietary_preference_provider.dart';
 import '../../../models/recipe_model.dart';
 import 'recipe_detail_screen.dart';
 
@@ -13,7 +14,9 @@ class BookmarkedRecipesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookmarked = ref.watch(bookmarkedRecipesProvider);
+    final bookmarkedRaw = ref.watch(bookmarkedRecipesProvider);
+    final dietaryPref = ref.watch(dietaryPreferenceProvider);
+    final bookmarked = bookmarkedRaw.where((r) => dietaryPref == DietaryPreference.both || r.isVeg).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,

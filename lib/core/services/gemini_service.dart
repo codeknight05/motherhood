@@ -18,9 +18,11 @@ class GeminiService {
     required int ageInMonths,
     int count = 5,
     String? focus,
+    bool isVeg = false,
   }) async {
     final ageLabel = _ageLabel(ageInMonths);
     final focusLine = focus != null ? 'Focus theme: $focus.' : '';
+    final vegLine = isVeg ? 'The recipes must be 100% vegetarian (Veg Only). Do not include any eggs, meat, chicken, fish, or seafood.' : '';
 
     final systemPrompt =
         'You are a certified paediatric nutritionist. '
@@ -30,6 +32,7 @@ class GeminiService {
     final userPrompt = '''
 Generate $count innovative, nutritious, and delicious baby food recipes for a $ageLabel old baby ($ageInMonths months).
 $focusLine
+$vegLine
 
 Each recipe must be age-appropriate, made with easily available Indian ingredients.
 

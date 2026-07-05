@@ -12,6 +12,7 @@ import '../../../features/auth/presentation/login_screen.dart';
 import '../../../core/widgets/notifications_sheet.dart';
 import '../../../features/onboarding/presentation/baby_setup_screen.dart';
 import '../../../models/baby_model.dart';
+import '../../../core/providers/dietary_preference_provider.dart';
 import 'help_faq_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_of_service_screen.dart';
@@ -45,6 +46,12 @@ class ProfileScreen extends ConsumerWidget {
                 _buildMenuCard([
                   _MenuItem(icon: Icons.person_outline_rounded, label: 'Edit Profile', color: AppColors.primary, onTap: () => _showEditProfileSheet(context, user)),
                   _MenuItem(icon: Icons.child_care_rounded, label: 'Edit Baby Details', color: AppColors.accentPink, onTap: () => ProfileScreen.showEditBabySheet(context, ref, baby)),
+                  _MenuItem(
+                    icon: Icons.restaurant_rounded,
+                    label: 'Dietary Preference',
+                    color: AppColors.accentGreen,
+                    onTap: () => _showDietaryPreferenceSheet(context, ref),
+                  ),
                   _MenuItem(
                     icon: Icons.notifications_outlined,
                     label: 'Notifications',
@@ -480,6 +487,100 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showDietaryPreferenceSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Consumer(
+        builder: (context, ref, _) {
+          final dietaryPref = ref.watch(dietaryPreferenceProvider);
+          return _EditSheet(
+            title: 'Dietary Preference',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose your preference',
+                  style: AppTextStyles.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This filters the recipe suggestions and weekly meal plans in the app.',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppConstants.paddingXL),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Text('🍲', style: TextStyle(fontSize: 24)),
+                  title: Text('Both Veg & Non-Veg', style: AppTextStyles.titleMedium),
+                  subtitle: Text('Show all recipe suggestions', style: AppTextStyles.bodySmall),
+                  onTap: () {
+                    ref.read(dietaryPreferenceProvider.notifier).setPreference(DietaryPreference.both);
+                    Navigator.pop(context);
+                  },
+                  trailing: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: dietaryPref == DietaryPreference.both ? AppColors.primary : Colors.transparent,
+                      border: Border.all(
+                        color: dietaryPref == DietaryPreference.both ? AppColors.primary : AppColors.divider,
+                        width: 2,
+                      ),
+                    ),
+                    child: dietaryPref == DietaryPreference.both
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          )
+                        : null,
+                  ),
+                ),
+                const Divider(color: AppColors.divider),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Text('🥦', style: TextStyle(fontSize: 24)),
+                  title: Text('Veg Only', style: AppTextStyles.titleMedium),
+                  subtitle: Text('Hide non-vegetarian options', style: AppTextStyles.bodySmall),
+                  onTap: () {
+                    ref.read(dietaryPreferenceProvider.notifier).setPreference(DietaryPreference.veg);
+                    Navigator.pop(context);
+                  },
+                  trailing: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: dietaryPref == DietaryPreference.veg ? AppColors.primary : Colors.transparent,
+                      border: Border.all(
+                        color: dietaryPref == DietaryPreference.veg ? AppColors.primary : AppColors.divider,
+                        width: 2,
+                      ),
+                    ),
+                    child: dietaryPref == DietaryPreference.veg
+                        ? const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

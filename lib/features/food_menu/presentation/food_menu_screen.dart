@@ -12,6 +12,7 @@ import '../../../models/baby_model.dart';
 import '../../../models/recipe_model.dart';
 import 'recipe_detail_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../../core/providers/dietary_preference_provider.dart';
 import 'weekly_meal_plan_screen.dart';
 import 'bookmarked_recipes_screen.dart';
 import 'ai_recipes_screen.dart';
@@ -55,12 +56,13 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final baby = ref.watch(babyProvider).baby ?? sampleBaby;
+    final dietaryPref = ref.watch(dietaryPreferenceProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
-          _buildAppBar(),
+          _buildAppBar(dietaryPref),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingL),
             sliver: SliverList(
@@ -74,7 +76,7 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildQuickCategories(),
                 const SizedBox(height: AppConstants.paddingXL),
-                _buildTodaysPicks(),
+                _buildTodaysPicks(dietaryPref),
                 const SizedBox(height: AppConstants.paddingXL),
                 _buildWeeklyMealPlan(),
                 const SizedBox(height: AppConstants.paddingL),
@@ -90,7 +92,8 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(DietaryPreference dietaryPref) {
+    final isVeg = dietaryPref == DietaryPreference.veg;
     return SliverAppBar(
       floating: true,
       backgroundColor: AppColors.background,
@@ -114,6 +117,40 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
         ],
       ),
       actions: [
+        GestureDetector(
+          onTap: () {
+            ref.read(dietaryPreferenceProvider.notifier).setPreference(
+              isVeg ? DietaryPreference.both : DietaryPreference.veg,
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: isVeg ? AppColors.accentGreenLight : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+              border: Border.all(
+                color: isVeg ? AppColors.accentGreen : AppColors.divider,
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(isVeg ? '🥦' : '🍲', style: const TextStyle(fontSize: 13)),
+                const SizedBox(width: 4),
+                Text(
+                  isVeg ? 'Veg Only' : 'All Foods',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: isVeg ? AppColors.accentGreen : AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
         IconButton(
           icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary, size: 24),
           onPressed: () {
@@ -394,11 +431,15 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     }
   }
 
-  Widget _buildTodaysPicks() {
+  Widget _buildTodaysPicks(DietaryPreference dietaryPref) {
     final picks = sampleRecipes
-        .where((r) => widget.role == 'pregnant'
-            ? r.ageGroups.contains('pregnant')
-            : !r.ageGroups.contains('pregnant'))
+        .where((r) {
+          final matchesRole = widget.role == 'pregnant'
+              ? r.ageGroups.contains('pregnant')
+              : !r.ageGroups.contains('pregnant');
+          final matchesDiet = dietaryPref == DietaryPreference.both || r.isVeg;
+          return matchesRole && matchesDiet;
+        })
         .take(4)
         .toList();
     final tagColors = [AppColors.accentGreen, AppColors.accentOrange, AppColors.primary, AppColors.accentPink];

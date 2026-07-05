@@ -9,6 +9,7 @@ import '../../../core/providers/ai_recipes_provider.dart';
 import '../../../core/providers/recipe_provider.dart';
 import '../../../models/baby_model.dart';
 import '../../../models/recipe_model.dart';
+import '../../../core/providers/dietary_preference_provider.dart';
 import 'recipe_detail_screen.dart';
 import '../../../core/widgets/network_error_screen.dart';
 import '../../../core/utils/network_connectivity.dart';
@@ -88,6 +89,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
   Widget build(BuildContext context) {
     final aiState = ref.watch(aiRecipesProvider);
     final baby = ref.watch(babyProvider).baby ?? sampleBaby;
+    final dietaryPref = ref.watch(dietaryPreferenceProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -108,7 +110,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                 else if (aiState.hasError)
                   _buildErrorState(aiState.error!)
                 else if (aiState.hasRecipes)
-                  _buildRecipeList(aiState.recipes)
+                  _buildRecipeList(aiState.recipes, dietaryPref)
                 else
                   _buildEmptyState(),
                 const SizedBox(height: 100),
@@ -401,7 +403,9 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
     );
   }
 
-  Widget _buildRecipeList(List<RecipeModel> recipes) {
+  Widget _buildRecipeList(List<RecipeModel> recipes, DietaryPreference dietaryPref) {
+    final filteredRecipes = recipes.where((r) => dietaryPref == DietaryPreference.both || r.isVeg).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -413,7 +417,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
                 children: [
                   Text("Today's AI Picks", style: AppTextStyles.headlineSmall),
                   Text(
-                    '${recipes.length} recipes generated',
+                    '${filteredRecipes.length} recipes generated',
                     style: AppTextStyles.bodySmall,
                   ),
                 ],
@@ -444,7 +448,7 @@ class _AiRecipesScreenState extends ConsumerState<AiRecipesScreen> {
           ],
         ),
         const SizedBox(height: AppConstants.paddingM),
-        ...recipes.asMap().entries.map((entry) {
+        ...filteredRecipes.asMap().entries.map((entry) {
           final emoji = _categoryEmojis[entry.key % _categoryEmojis.length];
           return Padding(
             padding: const EdgeInsets.only(bottom: AppConstants.paddingM),

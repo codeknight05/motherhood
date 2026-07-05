@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/recipe_model.dart';
 import '../services/gemini_service.dart';
 import 'recipe_provider.dart';
+import 'dietary_preference_provider.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,9 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
     String? focusTheme,
     int count = 5,
   }) async {
+    final dietaryPref = _ref.read(dietaryPreferenceProvider);
+    final isVeg = dietaryPref == DietaryPreference.veg;
+
     state = state.copyWith(
       status: AiRecipesStatus.loading,
       ageInMonths: ageInMonths,
@@ -69,6 +73,7 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
           ageInMonths: ageInMonths,
           count: count,
           focus: focusTheme,
+          isVeg: isVeg,
         );
 
         if (raw.isEmpty) {

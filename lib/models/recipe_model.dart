@@ -88,6 +88,37 @@ class RecipeModel {
     this.isBookmarked = false,
   });
 
+  bool get isVeg {
+    final lowerName = name.toLowerCase();
+    final lowerDesc = description.toLowerCase();
+    final nonVegKeywords = ['egg', 'chicken', 'fish', 'meat', 'mutton', 'prawn', 'shrimp', 'salmon', 'tuna', 'non-veg'];
+    
+    for (final kw in nonVegKeywords) {
+      if (lowerName.contains(kw) || lowerDesc.contains(kw)) {
+        if (lowerName.contains('eggplant') || lowerDesc.contains('eggplant')) {
+          continue;
+        }
+        if (lowerName.contains('eggless') || lowerDesc.contains('eggless')) {
+          continue;
+        }
+        return false;
+      }
+    }
+    
+    for (final ing in ingredients) {
+      final lowerIng = ing.name.toLowerCase();
+      for (final kw in nonVegKeywords) {
+        if (lowerIng.contains(kw)) {
+          if (lowerIng.contains('eggplant') || lowerIng.contains('eggless')) {
+            continue;
+          }
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   RecipeModel copyWith({bool? isBookmarked}) {
     return RecipeModel(
       id: id,

@@ -9,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../models/recipe_model.dart';
 import '../../../core/providers/weekly_meal_plan_provider.dart';
 import '../../../core/providers/recipe_provider.dart';
+import '../../../core/providers/dietary_preference_provider.dart';
 import 'recipe_detail_screen.dart';
 import 'allergy_guide_screen.dart';
 
@@ -70,10 +71,12 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
     final Map<String, List<String>> ingredientQuantities = {};
     final Map<String, String> ingredientNames = {};
 
+    final dietaryPref = ref.read(dietaryPreferenceProvider);
     for (final dayMeals in weeklyMeals.values) {
       for (final slot in dayMeals) {
         final recipe = slot.recipe;
         if (recipe == null) continue;
+        if (dietaryPref == DietaryPreference.veg && !recipe.isVeg) continue;
 
         for (final ingredient in recipe.ingredients) {
           final name = ingredient.name.trim();
@@ -603,7 +606,8 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
           ...dayMeals.asMap().entries.map((entry) {
             final i = entry.key;
             final slot = entry.value;
-            final recipe = slot.recipe;
+            final dietaryPref = ref.watch(dietaryPreferenceProvider);
+            final recipe = (slot.recipe != null && (dietaryPref == DietaryPreference.both || slot.recipe!.isVeg)) ? slot.recipe : null;
             return Column(
               children: [
                 _MealRow(
@@ -943,6 +947,7 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
   }
 
   String _getShareText() {
+    final dietaryPref = ref.read(dietaryPreferenceProvider);
     final buffer = StringBuffer();
     buffer.writeln('🌸 MOMS OF TOMORROW WEEKLY MEAL PLAN (${widget.ageGroup}) 🌸\n');
     
@@ -953,7 +958,10 @@ class _WeeklyMealPlanScreenState extends ConsumerState<WeeklyMealPlanScreen> {
       buffer.writeln('📅 ${daysOfWeek[dayIdx]}:');
       final meals = weeklyMeals[dayIdx] ?? weeklyMeals[0]!;
       for (var meal in meals) {
-        final recipe = meal.recipe;
+        var recipe = meal.recipe;
+        if (recipe != null && dietaryPref == DietaryPreference.veg && !recipe.isVeg) {
+          recipe = null;
+        }
         buffer.writeln('  - ${meal.mealName} (${meal.time}): ${recipe?.name ?? "Breast Milk / Formula"}');
       }
       buffer.writeln();
@@ -1211,8 +1219,12 @@ class _RecipeSelectorSheetState extends ConsumerState<_RecipeSelectorSheet> {
   Widget build(BuildContext context) {
     final library = ref.watch(recipeLibraryProvider);
     final bookmarkedIds = ref.watch(bookmarksProvider);
+    final dietaryPref = ref.watch(dietaryPreferenceProvider);
 
     final filteredRecipes = library.where((recipe) {
+      if (dietaryPref == DietaryPreference.veg && !recipe.isVeg) {
+        return false;
+      }
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final nameMatch = recipe.name.toLowerCase().contains(query);
