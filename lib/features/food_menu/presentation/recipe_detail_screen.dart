@@ -149,11 +149,11 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            widget.isAiGenerated || recipe.imageUrl.isEmpty
+            recipe.imageUrl.isEmpty
                 ? Container(
                     decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
                     child: const Center(
-                      child: Text('🤖', style: TextStyle(fontSize: 80)),
+                      child: Text('🍲', style: TextStyle(fontSize: 64)),
                     ),
                   )
                 : Image.network(

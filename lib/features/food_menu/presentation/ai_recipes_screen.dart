@@ -478,7 +478,7 @@ class _AiRecipeCard extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // Emoji thumbnail
+          // Image/Emoji thumbnail
           Container(
             width: 90,
             height: 110,
@@ -489,9 +489,25 @@ class _AiRecipeCard extends ConsumerWidget {
                 bottomLeft: Radius.circular(AppConstants.radiusL),
               ),
             ),
-            child: Center(
-              child: Text(emoji, style: const TextStyle(fontSize: 44)),
-            ),
+            child: recipe.imageUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppConstants.radiusL),
+                      bottomLeft: Radius.circular(AppConstants.radiusL),
+                    ),
+                    child: Image.network(
+                      recipe.imageUrl,
+                      width: 90,
+                      height: 110,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Text(emoji, style: const TextStyle(fontSize: 44)),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(emoji, style: const TextStyle(fontSize: 44)),
+                  ),
           ),
           // Info
           Expanded(

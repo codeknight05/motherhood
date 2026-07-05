@@ -150,13 +150,17 @@ class AiRecipesNotifier extends StateNotifier<AiRecipesState> {
     final categoryStr = m['category'] as String? ?? 'lunch';
     final category = _parseCategory(categoryStr);
 
+    final recipeName = m['name'] as String? ?? 'AI Recipe';
+    final prompt = Uri.encodeComponent('$recipeName, baby food puree, professional food photography, studio lighting, soft natural background, clean plate, highly appetizing');
+    final imageUrl = 'https://image.pollinations.ai/prompt/$prompt?width=600&height=400&nologo=true';
+
     return RecipeModel(
       id: m['id'] != null
           ? 'ai_${m['id'].toString()}'
           : 'ai_${DateTime.now().millisecondsSinceEpoch}',
-      name: m['name'] as String? ?? 'AI Recipe',
+      name: recipeName,
       description: m['description'] as String? ?? '',
-      imageUrl: '', // AI recipes use emoji placeholder
+      imageUrl: imageUrl,
       cookTimeMinutes: (m['cookTimeMinutes'] as num?)?.toInt() ?? 20,
       calories: (m['calories'] as num?)?.toInt() ?? 100,
       tag: m['tag'] as String? ?? 'Nutritious',
