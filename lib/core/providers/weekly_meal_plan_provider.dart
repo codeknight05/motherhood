@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/recipe_model.dart';
 import '../services/supabase_service.dart';
+import 'dietary_preference_provider.dart';
 
 class MealPlanSlot {
   final String mealName;
@@ -33,7 +34,15 @@ class MealPlanSlot {
 }
 
 class WeeklyMealPlanNotifier extends StateNotifier<Map<int, List<MealPlanSlot>>> {
-  WeeklyMealPlanNotifier() : super(_getFallbackInitialState('parent', '6–8 Months'));
+  final Ref _ref;
+  WeeklyMealPlanNotifier(this._ref) : super(const {}) {
+    // Load initial meal plan asynchronously
+    loadWeeklyMealPlan(role: 'parent', ageGroup: '6–8 Months');
+    
+    _ref.listen<DietaryPreference>(dietaryPreferenceProvider, (previous, next) {
+      loadWeeklyMealPlan(role: _currentRole, ageGroup: _currentAgeGroup);
+    });
+  }
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -45,6 +54,7 @@ class WeeklyMealPlanNotifier extends StateNotifier<Map<int, List<MealPlanSlot>>>
     state = {}; // Clear state to trigger loading indicator in UI
     String activeRole = role ?? 'parent';
     String activeAgeGroup = ageGroup ?? '6–8 Months';
+    final dietaryPref = _ref.read(dietaryPreferenceProvider);
 
     if (role == null) {
       final user = SupabaseService.currentUser;
@@ -104,13 +114,13 @@ class WeeklyMealPlanNotifier extends StateNotifier<Map<int, List<MealPlanSlot>>>
 
       // Check if we retrieved a complete weekly menu from Supabase
       if (newPlan.values.every((list) => list.isEmpty)) {
-        state = _getFallbackInitialState(activeRole, activeAgeGroup);
+        state = _getFallbackInitialState(activeRole, activeAgeGroup, dietaryPref: dietaryPref);
       } else {
         state = newPlan;
       }
     } catch (e) {
       // Fallback on error
-      state = _getFallbackInitialState(activeRole, activeAgeGroup);
+      state = _getFallbackInitialState(activeRole, activeAgeGroup, dietaryPref: dietaryPref);
     } finally {
       _isLoading = false;
     }
@@ -152,294 +162,83 @@ class WeeklyMealPlanNotifier extends StateNotifier<Map<int, List<MealPlanSlot>>>
     }
   }
 
-  static RecipeModel? _getRecipeById(String id) {
-    try {
-      return sampleRecipes.firstWhere((r) => r.id == id);
-    } catch (_) {
-      return null;
+  static bool _recipeMatchesAgeGroup(RecipeModel recipe, String selectedLabel) {
+    final label = selectedLabel.toLowerCase().replaceAll('–', '-').replaceAll('\n', ' ').trim();
+    for (final group in recipe.ageGroups) {
+      final gNorm = group.toLowerCase().replaceAll('–', '-').trim();
+      if (gNorm == label) return true;
+      if (label.contains('6 months') && (gNorm.contains('6 months') || gNorm.contains('6-8 months'))) return true;
+      if (label.contains('6-8 months') && gNorm.contains('6-8 months')) return true;
+      if (label.contains('8-10 months') && (gNorm.contains('9-12 months') || gNorm.contains('6-8 months') || gNorm.contains('8-10 months'))) return true;
+      if (label.contains('10-12 months') && (gNorm.contains('10-12 months') || gNorm.contains('9-12 months'))) return true;
+      if (label.contains('1-2 years') && gNorm.contains('1-2 years')) return true;
     }
+    return false;
   }
 
-  static Map<int, List<MealPlanSlot>> _getFallbackInitialState(String role, String ageGroup) {
-    if (role == 'pregnant') {
-      return {
-        0: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('101')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('102')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('103')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('104')),
-        ],
-        1: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('105')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('106')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('107')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('108')),
-        ],
-        2: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('109')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('110')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('111')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('112')),
-        ],
-        3: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('113')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('114')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('115')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('116')),
-        ],
-        4: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('117')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('118')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('119')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('120')),
-        ],
-        5: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('121')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('122')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('123')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('124')),
-        ],
-        6: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('125')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('126')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('127')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('128')),
-        ],
-      };
+  static Map<int, List<MealPlanSlot>> _getFallbackInitialState(
+    String role,
+    String ageGroup, {
+    DietaryPreference dietaryPref = DietaryPreference.both,
+  }) {
+    final candidates = sampleRecipes.where((r) {
+      final matchesRole = role == 'pregnant'
+          ? r.ageGroups.contains('pregnant')
+          : _recipeMatchesAgeGroup(r, ageGroup);
+      final matchesDiet = dietaryPref == DietaryPreference.both || r.isVeg;
+      return matchesRole && matchesDiet;
+    }).toList();
+
+    RecipeModel? getRecipeForCategory(RecipeCategory category, int dayIndex) {
+      final categoryRecipes = candidates.where((r) {
+        if (category == RecipeCategory.eveningSnack) {
+          return r.category == RecipeCategory.eveningSnack || r.category == RecipeCategory.midMorning;
+        }
+        return r.category == category;
+      }).toList();
+
+      if (categoryRecipes.isEmpty) {
+        final fallbackList = sampleRecipes.where((r) => dietaryPref == DietaryPreference.both || r.isVeg).toList();
+        if (fallbackList.isEmpty) return null;
+        return fallbackList[(dayIndex) % fallbackList.length];
+      }
+      return categoryRecipes[(dayIndex) % categoryRecipes.length];
     }
 
-    // Determine target age group fallbacks
-    if (ageGroup.contains('6 Months')) {
-      return {
-        0: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('301')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('302')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('304')),
-        ],
-        1: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('305')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('306')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('307')),
-        ],
-        2: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('308')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('309')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('310')),
-        ],
-        3: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('311')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('312')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('313')),
-        ],
-        4: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('305')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('314')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('304')),
-        ],
-        5: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('308')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('315')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('316')),
-        ],
-        6: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('301')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('317')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('303')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('318')),
-        ],
-      };
-    } else if (ageGroup.contains('6–8 Months')) {
-      return {
-        0: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('305')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('319')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('304')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('309')),
-        ],
-        1: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('301')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('313')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('307')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('308')),
-        ],
-        2: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('320')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('306')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('318')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('321')),
-        ],
-        3: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('322')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('323')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('304')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('324')),
-        ],
-        4: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('305')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('325')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('326')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('327')),
-        ],
-        5: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('301')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('328')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('316')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('319')),
-        ],
-        6: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('308')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('317')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('318')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('325')),
-        ],
-      };
-    } else if (ageGroup.contains('8–10 Months')) {
-      return {
-        0: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('329')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('330')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('331')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('317')),
-        ],
-        1: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('305')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('332')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('333')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('308')),
-        ],
-        2: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('334')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('335')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('336')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('337')),
-        ],
-        3: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('338')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('339')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('340')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('341')),
-        ],
-        4: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('342')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('343')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('344')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('324')),
-        ],
-        5: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('345')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('346')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('312')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('319')),
-        ],
-        6: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('305')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('347')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('348')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('325')),
-        ],
-      };
-    } else if (ageGroup.contains('10–12 Months')) {
-      return {
-        0: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('349')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('350')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('351')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('352')),
-        ],
-        1: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('353')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('323')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('336')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('355')),
-        ],
-        2: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('356')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('357')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('331')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('358')),
-        ],
-        3: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('359')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('360')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('361')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('319')),
-        ],
-        4: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('362')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('363')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('364')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('365')),
-        ],
-        5: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('366')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('367')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('340')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('368')),
-        ],
-        6: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('369')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('370')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('348')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('352')),
-        ],
-      };
-    } else {
-      // Default to 1-2 Years fallback
-      return {
-        0: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('371')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('372')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('373')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('374')),
-        ],
-        1: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('375')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('376')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('377')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('378')),
-        ],
-        2: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('379')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('380')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('381')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('382')),
-        ],
-        3: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('359')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('363')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('383')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('319')),
-        ],
-        4: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('384')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('385')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('386')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('368')),
-        ],
-        5: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('356')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('387')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('388')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('389')),
-        ],
-        6: [
-          MealPlanSlot(mealName: 'Breakfast', time: '8:00 AM', emoji: '🌅', recipe: _getRecipeById('390')),
-          MealPlanSlot(mealName: 'Lunch', time: '1:00 PM', emoji: '☀️', recipe: _getRecipeById('391')),
-          MealPlanSlot(mealName: 'Evening Snack', time: '4:30 PM', emoji: '🌤️', recipe: _getRecipeById('392')),
-          MealPlanSlot(mealName: 'Dinner', time: '7:30 PM', emoji: '🌙', recipe: _getRecipeById('393')),
-        ],
-      };
+    final Map<int, List<MealPlanSlot>> plan = {};
+    for (int day = 0; day < 7; day++) {
+      plan[day] = [
+        MealPlanSlot(
+          mealName: 'Breakfast',
+          time: '8:00 AM',
+          emoji: '🌅',
+          recipe: getRecipeForCategory(RecipeCategory.breakfast, day),
+        ),
+        MealPlanSlot(
+          mealName: 'Lunch',
+          time: '1:00 PM',
+          emoji: '☀️',
+          recipe: getRecipeForCategory(RecipeCategory.lunch, day),
+        ),
+        MealPlanSlot(
+          mealName: 'Evening Snack',
+          time: '4:30 PM',
+          emoji: '🌤️',
+          recipe: getRecipeForCategory(RecipeCategory.eveningSnack, day),
+        ),
+        MealPlanSlot(
+          mealName: 'Dinner',
+          time: '7:30 PM',
+          emoji: '🌙',
+          recipe: getRecipeForCategory(RecipeCategory.dinner, day),
+        ),
+      ];
     }
+    return plan;
   }
 }
 
 final weeklyMealPlanProvider =
     StateNotifierProvider<WeeklyMealPlanNotifier, Map<int, List<MealPlanSlot>>>(
-  (ref) => WeeklyMealPlanNotifier(),
+  (ref) => WeeklyMealPlanNotifier(ref),
 );

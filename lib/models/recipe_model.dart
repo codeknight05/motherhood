@@ -1243,7 +1243,7 @@ final sampleRecipes = <RecipeModel>[
     id: '303',
     name: 'Breast Milk or Formula',
     description: 'A vital source of hydration, immunoglobulins, and complete nutrition for your growing baby.',
-    imageUrl: 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600',
     cookTimeMinutes: 5,
     calories: 120,
     tag: 'Perfect Hydration',

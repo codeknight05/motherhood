@@ -431,17 +431,42 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
     }
   }
 
+  bool _recipeMatchesAgeGroup(RecipeModel recipe, String selectedLabel) {
+    final label = selectedLabel.toLowerCase().replaceAll('–', '-').replaceAll('\n', ' ').trim();
+    for (final group in recipe.ageGroups) {
+      final gNorm = group.toLowerCase().replaceAll('–', '-').trim();
+      if (gNorm == label) return true;
+      if (label.contains('6 months') && (gNorm.contains('6 months') || gNorm.contains('6-8 months'))) return true;
+      if (label.contains('6-8 months') && gNorm.contains('6-8 months')) return true;
+      if (label.contains('8-10 months') && (gNorm.contains('9-12 months') || gNorm.contains('6-8 months') || gNorm.contains('8-10 months'))) return true;
+      if (label.contains('10-12 months') && (gNorm.contains('10-12 months') || gNorm.contains('9-12 months'))) return true;
+      if (label.contains('1-2 years') && gNorm.contains('1-2 years')) return true;
+    }
+    return false;
+  }
+
   Widget _buildTodaysPicks(DietaryPreference dietaryPref) {
-    final picks = sampleRecipes
-        .where((r) {
-          final matchesRole = widget.role == 'pregnant'
-              ? r.ageGroups.contains('pregnant')
-              : !r.ageGroups.contains('pregnant');
-          final matchesDiet = dietaryPref == DietaryPreference.both || r.isVeg;
-          return matchesRole && matchesDiet;
-        })
-        .take(4)
-        .toList();
+    final selectedAgeLabel = _ageGroups[_selectedAgeGroup]['label']!;
+    final matchingRecipes = sampleRecipes.where((r) {
+      final matchesRole = widget.role == 'pregnant'
+          ? r.ageGroups.contains('pregnant')
+          : _recipeMatchesAgeGroup(r, selectedAgeLabel);
+      final matchesDiet = dietaryPref == DietaryPreference.both || r.isVeg;
+      return matchesRole && matchesDiet;
+    }).toList();
+
+    final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
+    final List<RecipeModel> picks;
+    if (matchingRecipes.isNotEmpty) {
+      final startIndex = dayOfYear % matchingRecipes.length;
+      final shifted = <RecipeModel>[];
+      for (int i = 0; i < matchingRecipes.length; i++) {
+        shifted.add(matchingRecipes[(startIndex + i) % matchingRecipes.length]);
+      }
+      picks = shifted.take(4).toList();
+    } else {
+      picks = [];
+    }
     final tagColors = [AppColors.accentGreen, AppColors.accentOrange, AppColors.primary, AppColors.accentPink];
 
     return Column(
