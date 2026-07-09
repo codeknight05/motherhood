@@ -11,6 +11,7 @@ interface NotificationPayload {
   title: string;
   body: string;
   userIds?: string[];
+  role?: string;
   sendToAll?: boolean;
   data?: Record<string, string>;
 }
@@ -70,11 +71,13 @@ serve(async (req: Request) => {
     // 4. Retrieve target tokens
     let query = supabase
       .from("profiles")
-      .select("id, fcm_token")
+      .select("id, fcm_token, role")
       .not("fcm_token", "is", null);
 
     if (userIds && userIds.length > 0 && !sendToAll) {
       query = query.in("id", userIds);
+    } else if (role && !sendToAll) {
+      query = query.eq("role", role);
     }
 
     const { data: profiles, error: dbError } = await query;
