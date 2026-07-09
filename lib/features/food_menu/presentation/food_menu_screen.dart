@@ -329,60 +329,45 @@ class _FoodMenuScreenState extends ConsumerState<FoodMenuScreen> {
   }
 
   Widget _buildQuickCategories() {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isSmallScreen = screenWidth < 450;
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: AppConstants.paddingM,
-        mainAxisSpacing: AppConstants.paddingM,
-        childAspectRatio: isSmallScreen ? 0.82 : 0.68,
-      ),
-      itemCount: _quickCategories.length,
-      itemBuilder: (context, index) {
-        final cat = _quickCategories[index];
-        return GestureDetector(
-          onTap: () => _handleCategoryTap(cat['route'] as String?),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: cat['color'] as Color,
-                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _quickCategories.map((cat) {
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => _handleCategoryTap(cat['route'] as String?),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: cat['color'] as Color,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  ),
+                  child: Icon(
+                    cat['icon'] as IconData,
+                    color: cat['iconColor'] as Color,
+                    size: 24,
+                  ),
                 ),
-                child: Icon(cat['icon'] as IconData, color: cat['iconColor'] as Color, size: 24),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                cat['label'] as String,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (!isSmallScreen) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 6),
                 Text(
-                  cat['subtitle'] as String,
-                  style: AppTextStyles.labelSmall.copyWith(color: AppColors.textSecondary, fontSize: 9),
+                  cat['label'] as String,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ],
+            ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 
