@@ -185,96 +185,11 @@ class NotificationService {
   static final List<Timer> _testTimers = []; // Store active Dart timers for testing
 
   /// Schedules inactivity notifications.
-  /// If isTestingMode is true, schedules 5 notifications using Dart Timers starting in 1 minute, spaced 1 minute apart.
-  /// If isTestingMode is false (production), schedules 5 notifications using AlarmManager zonedSchedule starting 2 hours from now, spaced 2 hours apart.
+  /// DISABLED: Local inactivity notifications have been removed in favor of the Google Sheets push notification system.
   static Future<void> scheduleInactivityNotifications() async {
-    // 1. Cancel any existing inactivity notifications first
+    // Simply ensure any existing local notifications are cancelled
     await cancelInactivityNotifications();
-
-    debugPrint('[NotificationService] Scheduling inactivity notifications. Mode: ${isTestingMode ? "TESTING (1-min Dart Timers)" : "PRODUCTION (every 2h starting in 2h)"}');
-
-    final now = tz.TZDateTime.now(tz.local);
-    final List<String> titles = [
-      'We miss you! 🌸',
-      'Time for a quick check-in? 👶',
-      'A quick update waiting for you!',
-      'Your daily baby insights 💖',
-      'Don\'t lose your streak! 🌟'
-    ];
-    final List<String> bodies = [
-      'You haven\'t checked in today. Open the app to view your daily tips and baby updates!',
-      'Take a moment to record your baby\'s progress and check your customized insights.',
-      'See what\'s new in your Moms of Tomorrow journey today.',
-      'Keep track of your health and pregnancy tips. We\'re here to support you.',
-      'Log your activities for today to keep your daily log up-to-date.'
-    ];
-
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'motherhood_inactivity_channel_v2',
-      'Inactivity Reminders',
-      channelDescription: 'Reminders sent when you have not opened the app today.',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-
-    const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-    );
-
-    for (int i = 0; i < _numReminders; i++) {
-      final id = _inactivityStartId + i;
-      final title = titles[i % titles.length];
-      final body = bodies[i % bodies.length];
-
-      if (isTestingMode) {
-        // Test mode: Schedule using a Dart Timer to bypass OS alarm throttling
-        final delay = Duration(minutes: i + 1);
-        final timer = Timer(delay, () async {
-          try {
-            await _localNotifications.show(id, title, body, details);
-            debugPrint('[NotificationService] Test inactivity notification #$id displayed via Timer.');
-          } catch (e) {
-            debugPrint('[NotificationService] Failed to show test notification #$id: $e');
-          }
-        });
-        _testTimers.add(timer);
-        debugPrint('[NotificationService] Scheduled test timer #$id for $delay');
-      } else {
-        // Production mode: Schedule using native AlarmManager (zonedSchedule)
-        final scheduledTime = now.add(Duration(hours: 2 + i * 2));
-        try {
-          await _localNotifications.zonedSchedule(
-            id,
-            title,
-            body,
-            scheduledTime,
-            details,
-            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-            uiLocalNotificationDateInterpretation:
-                UILocalNotificationDateInterpretation.absoluteTime,
-          );
-          debugPrint('[NotificationService] Scheduled exact inactivity notification #$id for $scheduledTime');
-        } catch (e) {
-          debugPrint('[NotificationService] Failed scheduling exact notification #$id, falling back to inexact: $e');
-          try {
-            await _localNotifications.zonedSchedule(
-              id,
-              title,
-              body,
-              scheduledTime,
-              details,
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-              uiLocalNotificationDateInterpretation:
-                  UILocalNotificationDateInterpretation.absoluteTime,
-            );
-            debugPrint('[NotificationService] Scheduled inexact inactivity notification #$id for $scheduledTime');
-          } catch (fallbackError) {
-            debugPrint('[NotificationService] Failed scheduling fallback inactivity notification #$id: $fallbackError');
-          }
-        }
-      }
-    }
+    debugPrint('[NotificationService] Local inactivity scheduling disabled in favor of Google Sheets push system.');
   }
 
   /// Cancels all scheduled inactivity reminders when the user returns
